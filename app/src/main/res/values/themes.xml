@@ -1,0 +1,5 @@
+<resources>
+    <style name="Theme.Vr2xr" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="android:windowFullscreen">false</item>
+    </style>
+</resources>

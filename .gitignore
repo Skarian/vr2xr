@@ -1,0 +1,33 @@
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+*.iml
+
+# Android / Gradle (root + module-level)
+.gradle/
+.kotlin/
+local.properties
+captures/
+**/build/
+**/.externalNativeBuild/
+**/.cxx/
+
+# Android artifacts
+*.apk
+*.ap_
+*.aab
+
+# Signing material
+*.jks
+*.keystore
+
+# Python tooling caches (dev utilities)
+__pycache__/
+*.pyc
+
+# Local sample media (keep metadata doc tracked)
+sample_files/*.mp4
+sample_files/*.mkv
+sample_files/*.mov

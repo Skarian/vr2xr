@@ -1,0 +1,6 @@
+[submodule "reference/xreal_one_driver"]
+	path = reference/xreal_one_driver
+	url = https://github.com/rohitsangwan01/xreal_one_driver.git
+[submodule "reference/VRto3D"]
+	path = reference/VRto3D
+	url = https://github.com/oneup03/VRto3D.git

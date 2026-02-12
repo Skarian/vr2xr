@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">vr2xr</string>
+    <string name="hint_url">https://example.com/video.mp4</string>
+    <string name="open_file">Open file</string>
+    <string name="open_url">Open URL</string>
+    <string name="recenter">Recenter</string>
+</resources>
