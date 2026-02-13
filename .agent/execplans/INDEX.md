@@ -23,7 +23,7 @@ Keep entries short, greppable, and consistent.
 
 ## Active ExecPlans
 
-- (none)
+- `EP-2026-02-13__xreal-imu-button-smoketest` — `XREAL IMU Button Smoketest (Start/Stop Toggle + Log Pull Command)` — `Status:DRAFT` — `Created:2026-02-13` — `Updated:2026-02-13` — `Path:.agent/execplans/active/EP-2026-02-13__xreal-imu-button-smoketest.md` — `Owner:nskaria` — `Summary:Define stop-gap XREAL IMU logging flow with toggle test button and one-command diagnostics pull` — `Links:PRD.md`
 
 ## Archived ExecPlans
 
