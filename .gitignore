@@ -31,3 +31,13 @@ __pycache__/
 sample_files/*.mp4
 sample_files/*.mkv
 sample_files/*.mov
+
+# Local diagnostics exports (keep docs tracked)
+diagnostics/xreal_logs/*.log
+
+# Local proprietary vendor assets (XREAL reverse-engineered path)
+app/libs/*.jar
+app/libs/*.aar
+app/src/main/jniLibs/arm64-v8a/*.so
+tools/vendor_sync/LOCAL_MANIFEST.txt
+/reference

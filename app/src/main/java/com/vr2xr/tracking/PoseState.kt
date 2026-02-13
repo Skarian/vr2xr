@@ -10,13 +10,3 @@ data class PoseState(
     val qw: Float = 1f,
     val trackingAvailable: Boolean = false
 )
-
-data class ImuSample(
-    val gx: Float,
-    val gy: Float,
-    val gz: Float,
-    val ax: Float,
-    val ay: Float,
-    val az: Float,
-    val timestampNanos: Long
-)

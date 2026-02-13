@@ -50,6 +50,8 @@ class VrPlayerEngine(
         })
     }
 
+    private var prepared = false
+
     fun prepare(source: SourceDescriptor, surface: Surface) {
         val httpFactory = DefaultHttpDataSource.Factory()
             .setConnectTimeoutMs(8_000)
@@ -60,9 +62,16 @@ class VrPlayerEngine(
         val mediaItem = MediaItem.fromUri(Uri.parse(source.normalized))
         val mediaSource = ProgressiveMediaSource.Factory(dataSourceFactory).createMediaSource(mediaItem)
 
+        bindVideoSurface(surface)
+        if (!prepared) {
+            player.setMediaSource(mediaSource)
+            player.prepare()
+            prepared = true
+        }
+    }
+
+    fun bindVideoSurface(surface: Surface) {
         player.setVideoSurface(surface)
-        player.setMediaSource(mediaSource)
-        player.prepare()
     }
 
     fun play() {
@@ -75,6 +84,7 @@ class VrPlayerEngine(
     }
 
     fun release() {
+        prepared = false
         player.release()
     }
 }

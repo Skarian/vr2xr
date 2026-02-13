@@ -6,6 +6,10 @@ import android.content.Intent
 import android.net.Uri
 
 class SourceResolver {
+    companion object {
+        private val HTTP_URL_REGEX = Regex("""https?://[^\s<>"']+""", RegexOption.IGNORE_CASE)
+    }
+
     fun resolve(intent: Intent?): SourceDescriptor? {
         val uri = intent?.data ?: return null
         val scheme = uri.scheme?.lowercase() ?: return null
@@ -37,12 +41,17 @@ class SourceResolver {
     }
 
     fun resolveUrl(raw: String): Result<SourceDescriptor> {
-        val parsed = Uri.parse(raw.trim())
+        val normalizedRaw = raw.trim()
+        if (normalizedRaw.isBlank()) {
+            return Result.failure(IllegalArgumentException("URL is empty"))
+        }
+
+        val parsed = Uri.parse(normalizedRaw)
         val scheme = parsed.scheme?.lowercase()
         return if (scheme == "http" || scheme == "https") {
             Result.success(
                 SourceDescriptor(
-                    original = raw,
+                    original = normalizedRaw,
                     normalized = parsed.toString(),
                     type = SourceType.HTTP_URL,
                     displayName = parsed.lastPathSegment
@@ -51,6 +60,16 @@ class SourceResolver {
         } else {
             Result.failure(IllegalArgumentException("Only http(s) URLs are supported"))
         }
+    }
+
+    fun resolveSharedText(raw: String): Result<SourceDescriptor> {
+        val trimmed = raw.trim()
+        if (trimmed.isBlank()) {
+            return Result.failure(IllegalArgumentException("Shared text is empty"))
+        }
+
+        val candidate = HTTP_URL_REGEX.find(trimmed)?.value ?: trimmed
+        return resolveUrl(candidate)
     }
 
     fun resolveUri(context: Context, uri: Uri, persistPermission: Boolean): Result<SourceDescriptor> {

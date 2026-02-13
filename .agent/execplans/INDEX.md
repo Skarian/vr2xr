@@ -23,8 +23,8 @@ Keep entries short, greppable, and consistent.
 
 ## Active ExecPlans
 
-- `EP-2026-02-12__vr2xr-mvp-build` — `Build vr2xr MVP End-to-End for Sideload Use` — `Status:ACTIVE` — `Created:2026-02-12` — `Updated:2026-02-12` — `Path:.agent/execplans/active/EP-2026-02-12__vr2xr-mvp-build.md` — `Owner:nskaria` — `Summary:Exhaustive multi-phase plan to deliver single-user MVP through signed sideload release` — `Links:PRD_v2.md`
+- (none)
 
 ## Archived ExecPlans
 
-- (none yet)
+- `EP-2026-02-12__vr2xr-mvp-build` — `Build vr2xr MVP End-to-End for Sideload Use` — `Status:ARCHIVED` — `Created:2026-02-12` — `Updated:2026-02-13` — `Path:.agent/execplans/archive/EP-2026-02-12__vr2xr-mvp-build.md` — `Owner:nskaria` — `Summary:Archived after user-directed hard reset removed all app-source XREAL/IMU implementation` — `Links:PRD_v2.md` — `Archived:2026-02-13` — `Outcome:Retired without completion; baseline intentionally reset for clean reimplementation`

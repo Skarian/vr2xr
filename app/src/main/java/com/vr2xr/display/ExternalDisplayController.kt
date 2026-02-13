@@ -38,9 +38,7 @@ class ExternalDisplayController(
     }
 
     fun currentPhysicalMode(): PhysicalDisplayMode? {
-        val target: Display = displayManager
-            .getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION)
-            .firstOrNull() ?: return null
+        val target: Display = currentPresentationDisplay() ?: return null
         val mode = target.mode
         return PhysicalDisplayMode(
             displayId = target.displayId,
@@ -49,6 +47,12 @@ class ExternalDisplayController(
             height = mode.physicalHeight,
             refreshRateHz = mode.refreshRate
         )
+    }
+
+    fun currentPresentationDisplay(): Display? {
+        return displayManager
+            .getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION)
+            .firstOrNull()
     }
 
     interface Listener {

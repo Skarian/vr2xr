@@ -3,6 +3,7 @@ package com.vr2xr.source
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 
 class IntentIngestor(
     private val resolver: SourceResolver
@@ -19,7 +20,7 @@ class IntentIngestor(
             }
 
             Intent.ACTION_SEND -> {
-                val streamUri: Uri? = intent.getParcelableExtra(Intent.EXTRA_STREAM)
+                val streamUri = intent.firstSharedUri()
                 if (streamUri != null) {
                     resolver.resolveUri(context, streamUri, persistPermission = false)
                 } else {
@@ -27,12 +28,47 @@ class IntentIngestor(
                     if (text.isNullOrBlank()) {
                         Result.failure(IllegalArgumentException("ACTION_SEND missing stream/text"))
                     } else {
-                        resolver.resolveUrl(text)
+                        resolver.resolveSharedText(text)
                     }
+                }
+            }
+
+            Intent.ACTION_SEND_MULTIPLE -> {
+                val streamUri = intent.firstSharedUriFromMultiple()
+                if (streamUri != null) {
+                    resolver.resolveUri(context, streamUri, persistPermission = false)
+                } else {
+                    Result.failure(IllegalArgumentException("ACTION_SEND_MULTIPLE missing stream"))
                 }
             }
 
             else -> null
         }
+    }
+
+    private fun Intent.firstSharedUri(): Uri? {
+        val extraStream = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            getParcelableExtra(Intent.EXTRA_STREAM)
+        }
+        return extraStream ?: firstClipDataUri()
+    }
+
+    private fun Intent.firstSharedUriFromMultiple(): Uri? {
+        val firstFromExtras = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            getParcelableArrayListExtra(Intent.EXTRA_STREAM, Uri::class.java)?.firstOrNull()
+        } else {
+            @Suppress("DEPRECATION")
+            getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM)?.firstOrNull()
+        }
+        return firstFromExtras ?: firstClipDataUri()
+    }
+
+    private fun Intent.firstClipDataUri(): Uri? {
+        val clip = clipData ?: return null
+        if (clip.itemCount == 0) return null
+        return clip.getItemAt(0).uri
     }
 }
