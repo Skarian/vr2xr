@@ -5,6 +5,7 @@
 .idea/
 *.iml
 .vscode/
+AGENTS.md
 
 # AI tooling / agent artifacts (local-only)
 .agent/
