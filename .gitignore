@@ -4,6 +4,15 @@
 # IDE
 .idea/
 *.iml
+.vscode/
+
+# AI tooling / agent artifacts (local-only)
+.agent/
+.codex/
+.cursor/
+.aider*
+.claude/
+.windsurf/
 
 # Android / Gradle (root + module-level)
 .gradle/
@@ -27,17 +36,28 @@ captures/
 __pycache__/
 *.pyc
 
-# Local sample media (keep metadata doc tracked)
-sample_files/*.mp4
-sample_files/*.mkv
-sample_files/*.mov
+# Local media / large binaries
+*.mp4
+*.mkv
+*.mov
+*.avi
+*.webm
+*.m4v
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.7z
+*.rar
 
 # Local diagnostics exports (keep docs tracked)
-diagnostics/xreal_logs/*.log
+diagnostics/**
+!diagnostics/.gitkeep
 
-# Local proprietary vendor assets (XREAL reverse-engineered path)
+# Local binary/vendor artifacts
 app/libs/*.jar
 app/libs/*.aar
 app/src/main/jniLibs/arm64-v8a/*.so
-tools/vendor_sync/LOCAL_MANIFEST.txt
+
+# Local reference material
 /reference

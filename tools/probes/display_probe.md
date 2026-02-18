@@ -19,10 +19,10 @@ Suggested log tag: `vr2xr-display-probe`.
 ## Test sequence
 
 1. Launch app with no external display connected.
-2. Connect XREAL and enable DeX mode.
-3. Observe first external display mode log entry.
+2. Connect the external display and enable DeX mode.
+3. Observe the first external display mode log entry.
 4. Toggle any available display mode changes (if accessible) and observe callbacks.
-5. Disconnect glasses and verify removal callback.
+5. Disconnect the display and verify the removal callback.
 
 ## Result template
 

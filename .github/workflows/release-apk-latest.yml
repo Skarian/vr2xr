@@ -1,0 +1,111 @@
+name: Release APK (latest)
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-latest
+  cancel-in-progress: true
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Build debug APK
+        run: ./gradlew :app:assembleDebug
+
+      - name: Publish latest release asset
+        uses: actions/github-script@v7
+        env:
+          APK_PATH: app/build/outputs/apk/debug/app-debug.apk
+          APK_NAME: vr2xr-debug.apk
+        with:
+          script: |
+            const fs = require('fs');
+            const apkPath = process.env.APK_PATH;
+            const apkName = process.env.APK_NAME;
+
+            if (!fs.existsSync(apkPath)) {
+              core.setFailed(`APK not found at ${apkPath}`);
+              return;
+            }
+
+            let release;
+            try {
+              const existing = await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag: 'latest'
+              });
+              release = existing.data;
+              await github.rest.repos.updateRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: release.id,
+                tag_name: 'latest',
+                target_commitish: context.sha,
+                name: 'Latest',
+                body: `Automated build for ${context.sha}`,
+                draft: false,
+                prerelease: true
+              });
+            } catch (error) {
+              if (error.status !== 404) {
+                throw error;
+              }
+              const created = await github.rest.repos.createRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag_name: 'latest',
+                target_commitish: context.sha,
+                name: 'Latest',
+                body: `Automated build for ${context.sha}`,
+                draft: false,
+                prerelease: true
+              });
+              release = created.data;
+            }
+
+            const assets = await github.rest.repos.listReleaseAssets({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: release.id,
+              per_page: 100
+            });
+
+            for (const asset of assets.data) {
+              await github.rest.repos.deleteReleaseAsset({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                asset_id: asset.id
+              });
+            }
+
+            const fileBuffer = fs.readFileSync(apkPath);
+            const stats = fs.statSync(apkPath);
+            await github.rest.repos.uploadReleaseAsset({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: release.id,
+              name: apkName,
+              data: fileBuffer,
+              headers: {
+                'content-type': 'application/vnd.android.package-archive',
+                'content-length': stats.size
+              }
+            });
