@@ -38,8 +38,6 @@ GitHub Actions workflow: `.github/workflows/release-apk-latest.yml`
 - Trigger: every push to `main`
 - Action: builds `app-debug.apk`
 - Published file name: `vr2xr.apk`
-- Storage strategy: stores one artifact stream named `vr2xr-apk-latest`
-- Cleanup strategy: deletes older artifacts with that name before uploading a new one
-- Releases/tags: none created by this workflow
-
-Download the APK from the latest successful workflow run artifacts in GitHub Actions.
+- Publish target: GitHub Releases
+- Release strategy: rolling single release/tag named `latest` (updated on each push)
+- Asset strategy: replaces prior `vr2xr.apk` on that release
