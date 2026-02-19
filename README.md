@@ -1,6 +1,6 @@
 # vr2xr
 
-Samsung DeX-first Android app for stereoscopic SBS video playback with deterministic external-display behavior.
+Android app for stereoscopic SBS video playback with deterministic external-display behavior.
 
 ## Current Scope
 
@@ -11,6 +11,7 @@ Samsung DeX-first Android app for stereoscopic SBS video playback with determini
 - Runtime diagnostics overlay for display and decoder status.
 - Guided external tracking setup flow backed by `oneproxr`.
 - Manual touch-look fallback when external tracking is unavailable.
+- DeX warning policy with mirroring-only playback guidance.
 
 ## Tracking UX Flow
 
@@ -38,6 +39,13 @@ When tracking is inactive/error, player falls back to manual touch look.
 
 - Player prefers glasses/external presentation when available.
 - Player falls back to in-app surface when external presentation is unavailable.
+
+## Samsung DeX Policy
+
+- Samsung DeX mode is intentionally unsupported for playback.
+- App shows a persistent warning recommending mirroring mode.
+- Required user flow: turn off DeX, enable screen mirroring, launch from phone.
+- In supported mode, controls stay on phone and video is routed to glasses.
 
 ## SBS Mode Behavior
 

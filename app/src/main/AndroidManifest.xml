@@ -22,8 +22,7 @@
 
         <activity
             android:name=".app.PlayerActivity"
-            android:exported="true"
-            android:launchMode="singleTask" />
+            android:exported="true" />
 
         <activity
             android:name=".app.TrackingSetupActivity"

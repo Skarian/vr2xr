@@ -18,8 +18,19 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="10dp"
-        android:text="Ready"
+        android:text="@string/status_ready"
         android:textSize="16sp" />
+
+    <TextView
+        android:id="@+id/dexWarningText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:background="#33B00020"
+        android:padding="10dp"
+        android:text="@string/dex_mode_warning"
+        android:textColor="#B00020"
+        android:textSize="14sp" />
 
     <EditText
         android:id="@+id/urlInput"

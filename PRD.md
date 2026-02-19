@@ -6,7 +6,7 @@ Owner: nskaria
 
 ## One-liner
 
-`vr2xr` is a Samsung DeX-first Android player for stereoscopic video playback with deterministic external-display behavior and low-friction source ingestion (file or URL).
+`vr2xr` is an Android player for stereoscopic video playback with deterministic external-display behavior and low-friction source ingestion (file or URL), using phone + mirrored glasses mode.
 
 ## Product outcome
 
@@ -19,6 +19,7 @@ A single user can:
 5. Route rendering to an external display when present.
 6. Use manual touch look controls and recenter controls when tracking is unavailable.
 7. See diagnostics for display mode, tracking mode, and decoder behavior.
+8. Receive clear guidance when Samsung DeX is active to switch to mirroring mode before playback.
 
 ## Scope
 
@@ -31,12 +32,14 @@ In scope:
 5. Guided calibration + zero-view flow for external tracking setup.
 6. Runtime external tracking integration via `oneproxr`.
 7. Diagnostics overlay and runtime error surfacing.
+8. DeX warning policy with mirroring guidance.
 
 Out of scope:
 
 1. Vendor-specific motion sensor extraction.
 2. Reverse-engineered device SDK bring-up.
 3. Sensor protocol research and validation.
+4. Samsung DeX desktop playback support.
 
 ## Architecture
 
@@ -69,11 +72,12 @@ Repository responsibilities:
 6. Recenter and touch look controls remain functional in fallback/manual mode.
 7. Tracking reconnect during playback does not interrupt video and exposes recalibration/zero-view controls.
 8. App does not issue SBS mode requests and playback remains functional regardless of manual SBS toggling timing.
+9. If Samsung DeX is active, app shows clear guidance to disable DeX and enable mirroring.
 
 ## Risks
 
 1. Device-specific decoder capability differences for high-resolution files.
-2. External display availability/mode behavior can vary by device profile (personal/work/DeX).
+2. External display availability/mode behavior can vary by device profile (personal/work); DeX mode is intentionally unsupported.
 3. Future pose-provider API mismatch during external library integration.
 
 ## Next milestones

@@ -7,7 +7,9 @@
     <string name="run_calibration">Run Calibration</string>
     <string name="zero_view">Zero View</string>
     <string name="continue_to_player">Continue to Player</string>
+    <string name="status_ready">Ready</string>
     <string name="status_preparing_source">Preparing: %1$s</string>
+    <string name="dex_mode_warning">Samsung DeX is not supported. For best results, turn off DeX and enable screen mirroring so controls stay on phone and video plays in glasses.</string>
     <string name="xreal_status_checking">XREAL status: checking...</string>
     <string name="xreal_status_connected">XREAL status: connected</string>
     <string name="xreal_status_not_connected">XREAL status: not connected</string>
