@@ -63,6 +63,8 @@ jobs:
         with:
           tag_name: latest
           name: Latest APK
+          draft: false
+          prerelease: false
           body: |
             Rolling latest APK from commit `${{ github.sha }}`.
             This release is updated on each push to `main`.
