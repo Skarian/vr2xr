@@ -31,14 +31,15 @@ Lint:
 ./gradlew :app:lintDebug
 ```
 
-## CI Release Automation
+## CI APK Automation
 
 GitHub Actions workflow: `.github/workflows/release-apk-latest.yml`
 
 - Trigger: every push to `main`
 - Action: builds `app-debug.apk`
-- Release strategy: maintains a single release/tag named `latest`
-- Asset strategy: deletes prior assets on that release and uploads one file:
-  `vr2xr-debug.apk`
+- Published file name: `vr2xr.apk`
+- Storage strategy: stores one artifact stream named `vr2xr-apk-latest`
+- Cleanup strategy: deletes older artifacts with that name before uploading a new one
+- Releases/tags: none created by this workflow
 
-This keeps only the most recent APK artifact in GitHub Releases.
+Download the APK from the latest successful workflow run artifacts in GitHub Actions.

@@ -1,4 +1,4 @@
-name: Release APK (latest)
+name: Build APK (latest artifact)
 
 on:
   push:
@@ -6,14 +6,15 @@ on:
       - main
 
 permissions:
-  contents: write
+  contents: read
+  actions: write
 
 concurrency:
-  group: release-latest
+  group: apk-latest-artifact
   cancel-in-progress: true
 
 jobs:
-  build-and-release:
+  build-and-publish-artifact:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -29,83 +30,55 @@ jobs:
       - name: Build debug APK
         run: ./gradlew :app:assembleDebug
 
-      - name: Publish latest release asset
+      - name: Rename APK to stable filename
+        run: cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/vr2xr.apk
+
+      - name: Delete previous latest APK artifacts
         uses: actions/github-script@v7
-        env:
-          APK_PATH: app/build/outputs/apk/debug/app-debug.apk
-          APK_NAME: vr2xr-debug.apk
         with:
           script: |
-            const fs = require('fs');
-            const apkPath = process.env.APK_PATH;
-            const apkName = process.env.APK_NAME;
+            const artifactName = "vr2xr-apk-latest";
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            let page = 1;
 
-            if (!fs.existsSync(apkPath)) {
-              core.setFailed(`APK not found at ${apkPath}`);
-              return;
-            }
+            while (true) {
+              const response = await github.rest.actions.listArtifactsForRepo({
+                owner,
+                repo,
+                per_page: 100,
+                page
+              });
 
-            let release;
-            try {
-              const existing = await github.rest.repos.getReleaseByTag({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                tag: 'latest'
-              });
-              release = existing.data;
-              await github.rest.repos.updateRelease({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                release_id: release.id,
-                tag_name: 'latest',
-                target_commitish: context.sha,
-                name: 'Latest',
-                body: `Automated build for ${context.sha}`,
-                draft: false,
-                prerelease: true
-              });
-            } catch (error) {
-              if (error.status !== 404) {
-                throw error;
+              const artifacts = response.data.artifacts;
+              if (artifacts.length === 0) {
+                break;
               }
-              const created = await github.rest.repos.createRelease({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                tag_name: 'latest',
-                target_commitish: context.sha,
-                name: 'Latest',
-                body: `Automated build for ${context.sha}`,
-                draft: false,
-                prerelease: true
-              });
-              release = created.data;
-            }
 
-            const assets = await github.rest.repos.listReleaseAssets({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              release_id: release.id,
-              per_page: 100
-            });
+              for (const artifact of artifacts) {
+                if (artifact.name !== artifactName) {
+                  continue;
+                }
 
-            for (const asset of assets.data) {
-              await github.rest.repos.deleteReleaseAsset({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                asset_id: asset.id
-              });
-            }
-
-            const fileBuffer = fs.readFileSync(apkPath);
-            const stats = fs.statSync(apkPath);
-            await github.rest.repos.uploadReleaseAsset({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              release_id: release.id,
-              name: apkName,
-              data: fileBuffer,
-              headers: {
-                'content-type': 'application/vnd.android.package-archive',
-                'content-length': stats.size
+                await github.rest.actions.deleteArtifact({
+                  owner,
+                  repo,
+                  artifact_id: artifact.id
+                });
+                core.info(`Deleted artifact ${artifact.id} (${artifact.name})`);
               }
-            });
+
+              if (artifacts.length < 100) {
+                break;
+              }
+
+              page += 1;
+            }
+
+      - name: Upload latest APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vr2xr-apk-latest
+          path: app/build/outputs/apk/debug/vr2xr.apk
+          if-no-files-found: error
+          retention-days: 90
