@@ -26,6 +26,10 @@
             android:launchMode="singleTask" />
 
         <activity
+            android:name=".app.TrackingSetupActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".app.MainActivity"
             android:exported="true">
             <intent-filter>

@@ -6,9 +6,18 @@
     android:padding="16dp">
 
     <TextView
+        android:id="@+id/xrealStatusText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="10dp"
+        android:text="@string/xreal_status_checking"
+        android:textSize="16sp" />
+
+    <TextView
         android:id="@+id/statusText"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
         android:text="Ready"
         android:textSize="16sp" />
 

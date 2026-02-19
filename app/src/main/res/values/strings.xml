@@ -4,4 +4,27 @@
     <string name="open_file">Open file</string>
     <string name="open_url">Open URL</string>
     <string name="recenter">Recenter</string>
+    <string name="run_calibration">Run Calibration</string>
+    <string name="zero_view">Zero View</string>
+    <string name="continue_to_player">Continue to Player</string>
+    <string name="status_preparing_source">Preparing: %1$s</string>
+    <string name="xreal_status_checking">XREAL status: checking...</string>
+    <string name="xreal_status_connected">XREAL status: connected</string>
+    <string name="xreal_status_not_connected">XREAL status: not connected</string>
+    <string name="xreal_status_error">XREAL status: error</string>
+    <string name="tracking_setup_title">Tracking Setup</string>
+    <string name="tracking_setup_step1">Place the glasses on a flat surface, keep them still, then run calibration.</string>
+    <string name="tracking_setup_step2">Calibration complete. Put the glasses on your head, face forward, then tap Zero View.</string>
+    <string name="tracking_setup_idle">Waiting to start calibration.</string>
+    <string name="tracking_setup_connecting">Connecting to glasses…</string>
+    <string name="tracking_setup_calibrating">Calibrating %1$d/%2$d</string>
+    <string name="tracking_setup_streaming">Tracking stream active.</string>
+    <string name="tracking_setup_error">Tracking error: %1$s</string>
+    <string name="tracking_setup_zero_done">Zero View applied. Ready to start playback.</string>
+    <string name="tracking_state_manual">manual fallback</string>
+    <string name="tracking_state_connecting">tracking connecting</string>
+    <string name="tracking_state_calibrating">tracking calibrating %1$d/%2$d</string>
+    <string name="tracking_state_streaming">tracking active</string>
+    <string name="tracking_state_error">manual fallback (tracking error)</string>
+    <string name="tracking_action_failed">Tracking action failed: %1$s</string>
 </resources>

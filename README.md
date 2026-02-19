@@ -9,8 +9,40 @@ Samsung DeX-first Android app for stereoscopic SBS video playback with determini
 - OpenGL ES SBS rendering path.
 - External display detection and presentation routing.
 - Runtime diagnostics overlay for display and decoder status.
+- Guided external tracking setup flow backed by `oneproxr`.
+- Manual touch-look fallback when external tracking is unavailable.
 
-Motion/orientation provider integration is intentionally external to this repository.
+## Tracking UX Flow
+
+1. Home screen shows visual XREAL connection status (`connected` / `not connected` / `error`).
+2. User chooses a video source.
+3. If glasses are connected, app opens `TrackingSetupActivity`:
+   - Step 1: place glasses on flat surface and run calibration.
+   - Step 2: put glasses on face and press `Zero View`.
+   - Continue into player.
+4. If glasses are not connected, app goes straight to player in manual fallback mode.
+5. During playback, if tracking drops, app continues in manual fallback without stopping video.
+6. If tracking reconnects during playback, user can recalibrate/zero-view from player controls.
+
+## oneproxr Integration Boundary
+
+- Submodule path: `reference/one-pro-imu`
+- Android library module used by app: `reference/one-pro-imu/oneproxr`
+- App-level integration owner: `app/src/main/java/com/vr2xr/tracking/OneProTrackingSessionManager.kt`
+- Guided setup screen: `app/src/main/java/com/vr2xr/app/TrackingSetupActivity.kt`
+
+When tracking is active, player uses `poseData` from `oneproxr` (mapped into `PoseState`).
+When tracking is inactive/error, player falls back to manual touch look.
+
+## Display Routing
+
+- Player prefers glasses/external presentation when available.
+- Player falls back to in-app surface when external presentation is unavailable.
+
+## SBS Mode Behavior
+
+- App does not change device SBS input mode.
+- User controls SBS mode directly on the glasses/device.
 
 ## Requirements
 

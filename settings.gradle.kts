@@ -18,4 +18,5 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "vr2xr"
-include(":app")
+include(":app", ":oneproxr")
+project(":oneproxr").projectDir = file("reference/one-pro-imu/oneproxr")

@@ -52,7 +52,10 @@ class ExternalDisplayController(
     fun currentPresentationDisplay(): Display? {
         return displayManager
             .getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION)
-            .firstOrNull()
+            .maxWithOrNull(
+                compareBy<Display> { it.mode.physicalWidth.toLong() * it.mode.physicalHeight.toLong() }
+                    .thenBy { it.mode.refreshRate }
+            )
     }
 
     interface Listener {

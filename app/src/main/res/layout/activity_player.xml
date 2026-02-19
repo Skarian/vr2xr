@@ -23,11 +23,34 @@
             android:layout_height="0dp"
             android:layout_weight="1" />
 
-        <Button
-            android:id="@+id/recenterButton"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/recenter" />
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/recenterButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/recenter" />
+
+            <Button
+                android:id="@+id/calibrateButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:text="@string/run_calibration" />
+
+            <Button
+                android:id="@+id/zeroViewButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:text="@string/zero_view" />
+        </LinearLayout>
     </LinearLayout>
 
     <FrameLayout
