@@ -1,21 +1,28 @@
 package com.vr2xr.app
 
+import android.opengl.GLSurfaceView
 import android.os.Build
 import android.os.Bundle
-import android.opengl.GLSurfaceView
 import android.view.MotionEvent
 import android.view.Surface
+import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.vr2xr.R
 import com.vr2xr.databinding.ActivityPlayerBinding
 import com.vr2xr.diag.DiagnosticsOverlay
 import com.vr2xr.diag.DiagnosticsState
+import com.vr2xr.display.ActiveRoute
+import com.vr2xr.display.DisplayRouteSnapshot
+import com.vr2xr.display.DisplayRouteState
+import com.vr2xr.display.DisplayRouteStateMachine
 import com.vr2xr.display.ExternalDisplayController
 import com.vr2xr.display.ExternalGlPresentation
 import com.vr2xr.display.PhysicalDisplayMode
+import com.vr2xr.display.RouteTarget
+import com.vr2xr.display.asDebugLabel
 import com.vr2xr.player.CodecCapabilityProbe
-import com.vr2xr.player.VrPlayerEngine
+import com.vr2xr.player.PlaybackSessionOwner
 import com.vr2xr.render.RenderMode
 import com.vr2xr.render.VrSbsRenderer
 import com.vr2xr.source.SourceDescriptor
@@ -25,38 +32,49 @@ import io.onepro.xr.XrBiasState
 import io.onepro.xr.XrSessionState
 import kotlin.math.cos
 import kotlin.math.sin
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 class PlayerActivity : AppCompatActivity() {
     private lateinit var binding: ActivityPlayerBinding
-    private lateinit var player: VrPlayerEngine
+    private lateinit var playbackSession: PlaybackSessionOwner
     private lateinit var diagnosticsOverlay: DiagnosticsOverlay
     private lateinit var displayController: ExternalDisplayController
     private lateinit var internalRenderer: VrSbsRenderer
     private lateinit var trackingManager: OneProTrackingSessionManager
+
+    private val routeStateMachine = DisplayRouteStateMachine()
+    private var routeState: DisplayRouteState = DisplayRouteState.NoOutput
+    private var activeRoute: ActiveRoute = ActiveRoute.NONE
+
     private var decoderSummary: String = "unknown"
-    private var mediaPrepared = false
     private var activeSurface: Surface? = null
     private var internalSurface: Surface? = null
     private var externalSurface: Surface? = null
     private var externalPresentation: ExternalGlPresentation? = null
     private var externalPresentationModeSignature: DisplayModeSignature? = null
+    private var externalPresentationToken: Long = 0L
     private var latestPose: PoseState = PoseState()
     private var trackingSummary: String = "manual touch controls"
     private var manualYawRad: Float = 0f
     private var manualPitchRad: Float = 0f
     private var lastTouchX: Float = 0f
     private var lastTouchY: Float = 0f
+
     private val renderMode = RenderMode()
     private val errors by lazy { ErrorUiController(this) }
+
     private var latestSessionState: XrSessionState = XrSessionState.Idle
     private var latestBiasState: XrBiasState = XrBiasState.Inactive
     private var wasStreaming = false
+
     private var trackingSessionStateJob: Job? = null
     private var trackingBiasStateJob: Job? = null
     private var trackingPoseJob: Job? = null
+    private var externalReconnectWatchdogJob: Job? = null
 
     private val source: SourceDescriptor? by lazy {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -72,22 +90,24 @@ class PlayerActivity : AppCompatActivity() {
         binding = ActivityPlayerBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        trackingManager = (application as Vr2xrApplication).trackingSessionManager
+        val app = application as Vr2xrApplication
+        trackingManager = app.trackingSessionManager
+        playbackSession = app.playbackSessionOwner
+
         displayController = ExternalDisplayController(
             context = this,
             listener = object : ExternalDisplayController.Listener {
                 override fun onModeChanged(mode: PhysicalDisplayMode?) {
                     runOnUiThread {
                         syncExternalPresentation()
-                        updateDiagnostics()
+                        updateRouting()
                     }
                 }
             }
         )
+
         diagnosticsOverlay = DiagnosticsOverlay(this)
         binding.diagnosticsContainer.addView(diagnosticsOverlay)
-
-        player = VrPlayerEngine(this)
 
         val resolvedSource = source
         if (resolvedSource == null) {
@@ -101,7 +121,7 @@ class PlayerActivity : AppCompatActivity() {
         internalRenderer = VrSbsRenderer(
             listener = object : VrSbsRenderer.Listener {
                 override fun onVideoSurfaceReady(surface: Surface) {
-                    runOnUiThread { onInternalSurfaceReady(resolvedSource, surface) }
+                    runOnUiThread { onInternalSurfaceReady(surface) }
                 }
 
                 override fun onVideoSurfaceDestroyed() {
@@ -109,6 +129,7 @@ class PlayerActivity : AppCompatActivity() {
                 }
             }
         )
+
         binding.videoSurface.setEGLContextClientVersion(2)
         binding.videoSurface.setRenderer(internalRenderer)
         binding.videoSurface.renderMode = GLSurfaceView.RENDERMODE_CONTINUOUSLY
@@ -116,11 +137,17 @@ class PlayerActivity : AppCompatActivity() {
         internalRenderer.setPose(latestPose)
         binding.videoSurface.setOnTouchListener { _, event -> handleLookTouch(event) }
 
+        binding.transportControls.player = playbackSession.player
+        binding.transportControls.show()
+
         binding.recenterButton.setOnClickListener { recenterView() }
         binding.calibrateButton.setOnClickListener { runCalibration() }
         binding.zeroViewButton.setOnClickListener { runZeroView() }
+
+        playbackSession.attachSource(resolvedSource, forceReset = savedInstanceState == null)
         updateTrackingSummary()
         updateTrackingControls()
+        renderRouteStatus()
         updateDiagnostics()
     }
 
@@ -133,19 +160,24 @@ class PlayerActivity : AppCompatActivity() {
         latestPose = pose
         applyPoseToRenderers(pose)
         attachTrackingCollectors()
+        updateRouting()
         updateDiagnostics()
+        startExternalReconnectWatchdog()
     }
 
     override fun onStop() {
         super.onStop()
         dismissExternalPresentation()
+        clearActiveSurface()
         if (::internalRenderer.isInitialized) {
             binding.videoSurface.onPause()
         }
         displayController.stop()
-        if (::player.isInitialized) {
-            player.pause()
+        if (!isChangingConfigurations) {
+            playbackSession.pauseForInterruption()
         }
+        externalReconnectWatchdogJob?.cancel()
+        externalReconnectWatchdogJob = null
         trackingSessionStateJob?.cancel()
         trackingSessionStateJob = null
         trackingBiasStateJob?.cancel()
@@ -156,11 +188,9 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         dismissExternalPresentation()
+        clearActiveSurface()
         if (::internalRenderer.isInitialized) {
             internalRenderer.release()
-        }
-        if (::player.isInitialized) {
-            player.release()
         }
         super.onDestroy()
     }
@@ -176,6 +206,7 @@ class PlayerActivity : AppCompatActivity() {
                 handleTrackingSessionState(state)
             }
         }
+
         trackingBiasStateJob?.cancel()
         trackingBiasStateJob = lifecycleScope.launch {
             trackingManager.biasState.collect { state ->
@@ -184,6 +215,7 @@ class PlayerActivity : AppCompatActivity() {
                 updateDiagnostics()
             }
         }
+
         trackingPoseJob?.cancel()
         trackingPoseJob = lifecycleScope.launch {
             trackingManager.pose.collect { pose ->
@@ -192,6 +224,19 @@ class PlayerActivity : AppCompatActivity() {
                 }
                 latestPose = pose
                 applyPoseToRenderers(pose)
+            }
+        }
+    }
+
+    private fun startExternalReconnectWatchdog() {
+        externalReconnectWatchdogJob?.cancel()
+        externalReconnectWatchdogJob = lifecycleScope.launch {
+            while (isActive) {
+                if (routeState !is DisplayRouteState.ExternalActive) {
+                    syncExternalPresentation()
+                    updateRouting()
+                }
+                delay(EXTERNAL_RECONNECT_WATCHDOG_MS)
             }
         }
     }
@@ -236,6 +281,7 @@ class PlayerActivity : AppCompatActivity() {
         if (latestBiasState is XrBiasState.Error && latestSessionState !is XrSessionState.Streaming) {
             trackingSummary = getString(R.string.tracking_state_error)
         }
+        binding.trackingStatusText.text = getString(R.string.tracking_status_template, trackingSummary)
     }
 
     private fun runCalibration() {
@@ -247,14 +293,24 @@ class PlayerActivity : AppCompatActivity() {
                 is XrSessionState.Streaming -> {
                     trackingManager.recalibrate()
                         .onFailure { error ->
-                            errors.show(getString(R.string.tracking_action_failed, error.message ?: "recalibration failed"))
+                            errors.show(
+                                getString(
+                                    R.string.tracking_action_failed,
+                                    error.message ?: "recalibration failed"
+                                )
+                            )
                         }
                 }
 
                 else -> {
                     trackingManager.runCalibration()
                         .onFailure { error ->
-                            errors.show(getString(R.string.tracking_action_failed, error.message ?: "calibration failed"))
+                            errors.show(
+                                getString(
+                                    R.string.tracking_action_failed,
+                                    error.message ?: "calibration failed"
+                                )
+                            )
                         }
                 }
             }
@@ -265,49 +321,39 @@ class PlayerActivity : AppCompatActivity() {
         lifecycleScope.launch {
             trackingManager.zeroView()
                 .onFailure { error ->
-                    errors.show(getString(R.string.tracking_action_failed, error.message ?: "zero view failed"))
+                    errors.show(
+                        getString(
+                            R.string.tracking_action_failed,
+                            error.message ?: "zero view failed"
+                        )
+                    )
                 }
         }
     }
 
-    private fun updateDiagnostics() {
-        val mode = displayController.currentPhysicalMode()
-        val route = when (activeSurface) {
-            externalSurface -> "external"
-            internalSurface -> "internal"
-            else -> "none"
-        }
-        diagnosticsOverlay.update(
-            DiagnosticsState(
-                displaySummary = mode?.let { "${it.width}x${it.height}@${it.refreshRateHz} [$route]" }
-                    ?: "internal-only [$route]",
-                trackingSummary = trackingSummary,
-                decoderSummary = decoderSummary,
-                droppedFrames = 0
-            )
-        )
-    }
-
     private fun syncExternalPresentation() {
         val display = displayController.currentPresentationDisplay()
-        val mode = displayController.currentPhysicalMode()
-        if (display == null || mode == null) {
-            dismissExternalPresentation()
-            bindPreferredSurface(source)
+        if (display == null) {
+            if (externalPresentation?.isShowing != true) {
+                dismissExternalPresentation()
+            }
+            updateRouting()
             return
         }
-        val currentSignature = mode.toSignature()
+
+        val currentSignature = display.toSignature()
         val activePresentation = externalPresentation
         if (
             activePresentation != null &&
             activePresentation.display.displayId == display.displayId &&
-            externalPresentationModeSignature == currentSignature
+            externalPresentationModeSignature == currentSignature &&
+            externalSurface != null
         ) {
-            bindPreferredSurface(source)
             return
         }
 
         dismissExternalPresentation()
+        val token = ++externalPresentationToken
         runCatching {
             ExternalGlPresentation(
                 context = this,
@@ -315,19 +361,28 @@ class PlayerActivity : AppCompatActivity() {
                 listener = object : ExternalGlPresentation.Listener {
                     override fun onVideoSurfaceReady(surface: Surface) {
                         runOnUiThread {
+                            if (token != externalPresentationToken) {
+                                return@runOnUiThread
+                            }
                             externalSurface = surface
-                            bindPreferredSurface(source)
+                            updateRouting()
                         }
                     }
 
                     override fun onVideoSurfaceDestroyed() {
                         runOnUiThread {
-                            externalSurface = null
-                            bindPreferredSurface(source)
+                            if (token != externalPresentationToken) {
+                                return@runOnUiThread
+                            }
+                            onExternalSurfaceDestroyed()
                         }
                     }
                 }
             ).also {
+                if (token != externalPresentationToken) {
+                    it.dismiss()
+                    return@also
+                }
                 externalPresentation = it
                 externalPresentationModeSignature = currentSignature
                 it.setRenderMode(renderMode)
@@ -335,50 +390,145 @@ class PlayerActivity : AppCompatActivity() {
                 it.show()
             }
         }.onFailure {
+            if (token != externalPresentationToken) {
+                return@onFailure
+            }
             errors.show("Failed to start external presentation: ${it.message ?: "unknown error"}")
             externalPresentation = null
             externalSurface = null
             externalPresentationModeSignature = null
+            updateRouting()
         }
     }
 
     private fun dismissExternalPresentation() {
+        externalPresentationToken += 1L
         externalPresentation?.dismiss()
         externalPresentation = null
         externalSurface = null
         externalPresentationModeSignature = null
     }
 
-    private fun onInternalSurfaceReady(source: SourceDescriptor, surface: Surface) {
+    private fun onInternalSurfaceReady(surface: Surface) {
         internalSurface = surface
-        bindPreferredSurface(source)
+        updateRouting()
     }
 
     private fun onInternalSurfaceDestroyed() {
+        val destroyedSurface = internalSurface
+        if (destroyedSurface != null && activeSurface === destroyedSurface) {
+            playbackSession.clearSurface(destroyedSurface)
+            activeSurface = null
+            activeRoute = ActiveRoute.NONE
+        }
         internalSurface = null
-        bindPreferredSurface(source)
+        updateRouting()
     }
 
-    private fun bindPreferredSurface(source: SourceDescriptor?) {
-        if (source == null) return
-        val preferredSurface = externalSurface ?: internalSurface
-        if (preferredSurface == null) {
+    private fun onExternalSurfaceDestroyed() {
+        val destroyedSurface = externalSurface
+        if (destroyedSurface != null && activeSurface === destroyedSurface) {
+            playbackSession.clearSurface(destroyedSurface)
             activeSurface = null
-            player.pause()
-            updateDiagnostics()
-            return
+            activeRoute = ActiveRoute.NONE
+        }
+        externalSurface = null
+        updateRouting()
+    }
+
+    private fun updateRouting() {
+        val snapshot = DisplayRouteSnapshot(
+            externalDisplayId = displayController.currentPresentationDisplay()?.displayId
+                ?: externalPresentation?.display?.displayId,
+            externalSurfaceReady = externalSurface != null,
+            activeRoute = activeRoute,
+            activeSurfaceBound = activeSurface != null
+        )
+        val decision = routeStateMachine.decide(snapshot)
+        routeState = decision.state
+        var externalSurfaceRebound = false
+
+        when (decision.target) {
+            RouteTarget.EXTERNAL -> {
+                externalSurfaceRebound = bindSurface(externalSurface, ActiveRoute.EXTERNAL)
+            }
+            RouteTarget.HOLD_CURRENT -> Unit
+            RouteTarget.NONE -> {
+                clearActiveSurface()
+                playbackSession.pauseForInterruption()
+            }
+        }
+        if (routeState is DisplayRouteState.ExternalActive) {
+            if (externalSurfaceRebound) {
+                playbackSession.showPausedFrameIfExpected()
+            }
+            playbackSession.resumeIfExpected()
         }
 
-        if (!mediaPrepared) {
-            player.prepare(source, preferredSurface)
-            mediaPrepared = true
-        } else if (activeSurface !== preferredSurface) {
-            player.bindVideoSurface(preferredSurface)
-        }
-
-        activeSurface = preferredSurface
-        player.play()
+        renderRouteStatus()
         updateDiagnostics()
+    }
+
+    private fun bindSurface(surface: Surface?, route: ActiveRoute): Boolean {
+        if (surface == null) {
+            clearActiveSurface()
+            return false
+        }
+        if (activeSurface === surface && activeRoute == route) {
+            return false
+        }
+
+        val previousSurface = activeSurface
+        if (previousSurface != null && previousSurface !== surface) {
+            playbackSession.clearSurface(previousSurface)
+        }
+
+        playbackSession.bindSurface(surface)
+        activeSurface = surface
+        activeRoute = route
+        return true
+    }
+
+    private fun clearActiveSurface() {
+        val previousSurface = activeSurface
+        if (previousSurface != null) {
+            playbackSession.clearSurface(previousSurface)
+        }
+        activeSurface = null
+        activeRoute = ActiveRoute.NONE
+    }
+
+    private fun renderRouteStatus() {
+        val summary = when (val current = routeState) {
+            DisplayRouteState.NoOutput -> getString(R.string.route_state_no_output)
+            is DisplayRouteState.ExternalPending -> getString(
+                R.string.route_state_external_pending,
+                current.displayId
+            )
+            is DisplayRouteState.ExternalActive -> getString(
+                R.string.route_state_external_active,
+                current.displayId
+            )
+        }
+        binding.routeStatusText.text = getString(R.string.route_status_template, summary)
+        binding.videoSurface.visibility = View.INVISIBLE
+    }
+
+    private fun updateDiagnostics() {
+        val mode = displayController.currentPhysicalMode()
+        val displaySummary = if (mode == null) {
+            "internal-only [${routeState.asDebugLabel()}]"
+        } else {
+            "${mode.width}x${mode.height}@${mode.refreshRateHz} [${routeState.asDebugLabel()}]"
+        }
+        diagnosticsOverlay.update(
+            DiagnosticsState(
+                displaySummary = displaySummary,
+                trackingSummary = trackingSummary,
+                decoderSummary = decoderSummary,
+                droppedFrames = 0
+            )
+        )
     }
 
     private fun applyPoseToRenderers(pose: PoseState) {
@@ -476,15 +626,17 @@ private data class DisplayModeSignature(
     val height: Int
 )
 
-private fun PhysicalDisplayMode.toSignature(): DisplayModeSignature {
+private fun android.view.Display.toSignature(): DisplayModeSignature {
+    val mode = this.mode
     return DisplayModeSignature(
         displayId = displayId,
-        modeId = modeId,
-        width = width,
-        height = height
+        modeId = mode.modeId,
+        width = mode.physicalWidth,
+        height = mode.physicalHeight
     )
 }
 
 private const val TOUCH_RADIANS_PER_PIXEL = 0.0035f
 private const val MAX_MANUAL_YAW_RAD = 3.1415927f
 private const val MAX_MANUAL_PITCH_RAD = 1.2f
+private const val EXTERNAL_RECONNECT_WATCHDOG_MS = 500L

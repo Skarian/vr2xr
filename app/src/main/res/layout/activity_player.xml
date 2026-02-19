@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
@@ -26,30 +27,69 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal">
+            android:orientation="vertical"
+            android:background="#CC101010"
+            android:padding="10dp">
 
-            <Button
-                android:id="@+id/recenterButton"
-                android:layout_width="0dp"
+            <TextView
+                android:id="@+id/routeStatusText"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/recenter" />
+                android:textColor="#FFFFFFFF"
+                android:textSize="12sp"
+                android:text="@string/route_status_placeholder" />
 
-            <Button
-                android:id="@+id/calibrateButton"
-                android:layout_width="0dp"
+            <TextView
+                android:id="@+id/trackingStatusText"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:layout_weight="1"
-                android:text="@string/run_calibration" />
+                android:layout_marginTop="4dp"
+                android:textColor="#FFFFFFFF"
+                android:textSize="12sp"
+                android:text="@string/tracking_status_placeholder" />
 
-            <Button
-                android:id="@+id/zeroViewButton"
-                android:layout_width="0dp"
+            <androidx.media3.ui.PlayerControlView
+                android:id="@+id/transportControls"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:layout_weight="1"
-                android:text="@string/zero_view" />
+                android:layout_marginTop="8dp"
+                app:repeat_toggle_modes="none"
+                app:show_fastforward_button="true"
+                app:show_next_button="false"
+                app:show_previous_button="false"
+                app:show_rewind_button="true"
+                app:show_shuffle_button="false"
+                app:show_timeout="0" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/recenterButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/recenter" />
+
+                <Button
+                    android:id="@+id/calibrateButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:layout_weight="1"
+                    android:text="@string/run_calibration" />
+
+                <Button
+                    android:id="@+id/zeroViewButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:layout_weight="1"
+                    android:text="@string/zero_view" />
+            </LinearLayout>
         </LinearLayout>
     </LinearLayout>
 

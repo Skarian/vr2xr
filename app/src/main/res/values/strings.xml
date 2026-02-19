@@ -29,4 +29,11 @@
     <string name="tracking_state_streaming">tracking active</string>
     <string name="tracking_state_error">manual fallback (tracking error)</string>
     <string name="tracking_action_failed">Tracking action failed: %1$s</string>
+    <string name="route_status_placeholder">Route: unknown</string>
+    <string name="tracking_status_placeholder">Tracking: unknown</string>
+    <string name="route_status_template">Route: %1$s</string>
+    <string name="tracking_status_template">Tracking: %1$s</string>
+    <string name="route_state_no_output">waiting for glasses output</string>
+    <string name="route_state_external_pending">external reconnecting (display %1$d)</string>
+    <string name="route_state_external_active">external active (display %1$d)</string>
 </resources>

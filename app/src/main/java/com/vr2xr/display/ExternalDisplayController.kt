@@ -52,16 +52,18 @@ class ExternalDisplayController(
     fun currentPresentationDisplay(): Display? {
         return displayManager
             .getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION)
-            .maxWithOrNull(
-                compareBy<Display> { it.mode.physicalWidth.toLong() * it.mode.physicalHeight.toLong() }
-                    .thenBy { it.mode.refreshRate }
-            )
+            .filter { it.state != Display.STATE_OFF }
+            .maxWithOrNull(displayRankingComparator)
     }
 
     interface Listener {
         fun onModeChanged(mode: PhysicalDisplayMode?)
     }
 }
+
+private val displayRankingComparator =
+    compareBy<Display> { it.mode.physicalWidth.toLong() * it.mode.physicalHeight.toLong() }
+        .thenBy { it.mode.refreshRate }
 
 data class PhysicalDisplayMode(
     val displayId: Int,

@@ -8,6 +8,7 @@ Android app for stereoscopic SBS video playback with deterministic external-disp
 - Media3/ExoPlayer playback pipeline.
 - OpenGL ES SBS rendering path.
 - External display detection and presentation routing.
+- Full phone transport controls (play/pause, seek bar, rewind/fast-forward) via Media3 controls.
 - Runtime diagnostics overlay for display and decoder status.
 - Guided external tracking setup flow backed by `oneproxr`.
 - Manual touch-look fallback when external tracking is unavailable.
@@ -37,8 +38,16 @@ When tracking is inactive/error, player falls back to manual touch look.
 
 ## Display Routing
 
-- Player prefers glasses/external presentation when available.
-- Player falls back to in-app surface when external presentation is unavailable.
+- Player uses an explicit route state machine: `ExternalActive`, `ExternalPending`, `NoOutput`.
+- Rendering is glasses-only. The phone is controls/status only and never an active video target.
+- If glasses are unavailable, player stays in waiting state and does not run hidden playback.
+- During disconnect/reconnect churn, playback continues headless (`NoOutput`) and rebinds to glasses when external surface is ready.
+- If playback was active before disconnect, it auto-resumes on glasses after reconnect.
+
+## Playback Continuity
+
+- Playback session ownership is application-scoped so `PlayerActivity` recreation does not reload media.
+- Phone rotation rebinds surfaces/UI without restarting playback from the beginning.
 
 ## Samsung DeX Policy
 
