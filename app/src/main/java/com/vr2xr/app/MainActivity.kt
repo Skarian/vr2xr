@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.view.View
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.interpolator.view.animation.FastOutSlowInInterpolator
@@ -173,11 +174,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showRequirementsModal() {
-        MaterialAlertDialogBuilder(this)
+        val dialog = MaterialAlertDialogBuilder(this)
             .setTitle(R.string.requirements_modal_title)
             .setMessage(R.string.requirements_modal_message)
             .setPositiveButton(R.string.requirements_modal_action, null)
             .show()
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            .setTextColor(ContextCompat.getColor(this, R.color.catppuccin_mocha_blue))
     }
 
     private fun renderConnectionStatusUi(nextStatus: ConnectionStatusUi) {

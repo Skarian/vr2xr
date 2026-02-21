@@ -21,9 +21,9 @@
     <string name="xreal_status_not_connected">Not Connected</string>
     <string name="xreal_status_error">Not Connected</string>
     <string name="requirements_modal_title">App Requirements</string>
-    <string name="requirements_modal_message">- XREAL One or XREAL One Pro glasses are required.\n- Android 13 or newer is required.\n- Samsung DeX desktop mode is not supported. Turn off DeX and use screen mirroring.</string>
+    <string name="requirements_modal_message">- XREAL One or XREAL One Pro glasses are required\n- Android 13 or newer is required\n- Samsung DeX desktop mode is not supported. Turn off DeX and use screen mirroring</string>
     <string name="requirements_modal_action">Got it</string>
-    <string name="toast_glasses_required">Connect XREAL glasses, then select VR SBS content.</string>
+    <string name="toast_glasses_required">Connect XREAL glasses, then select VR SBS content</string>
     <string name="footer_designed_with">Designed with ❤️ by Neil Skaria</string>
     <string name="tracking_setup_title">Tracking Setup</string>
     <string name="tracking_setup_step1">Place the glasses on a flat surface, keep them still, then run calibration.</string>
