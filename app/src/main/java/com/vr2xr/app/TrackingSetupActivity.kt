@@ -152,7 +152,7 @@ class TrackingSetupActivity : AppCompatActivity() {
 
             XrSessionState.Connecting -> {
                 binding.instructionText.text = getString(R.string.tracking_setup_step1)
-                binding.statusText.text = getString(R.string.tracking_setup_connecting)
+                binding.statusText.text = getString(R.string.tracking_setup_idle)
                 if (calibrationStartedByUser) {
                     calibrationProgressObserved = true
                 }
@@ -161,7 +161,7 @@ class TrackingSetupActivity : AppCompatActivity() {
 
             is XrSessionState.Calibrating -> {
                 binding.instructionText.text = getString(R.string.tracking_setup_step1)
-                binding.statusText.text = getString(R.string.tracking_setup_calibrating_simple)
+                binding.statusText.text = getString(R.string.tracking_setup_idle)
                 if (calibrationStartedByUser) {
                     calibrationProgressObserved = true
                 }
@@ -170,15 +170,13 @@ class TrackingSetupActivity : AppCompatActivity() {
 
             is XrSessionState.Streaming -> {
                 binding.instructionText.text = getString(R.string.tracking_setup_step1)
+                binding.statusText.text = getString(R.string.tracking_setup_idle)
                 if (calibrationStartedByUser && calibrationProgressObserved) {
-                    binding.statusText.text = getString(R.string.tracking_setup_calibration_complete)
                     setCalibrationButtonComplete(animated = false)
                     startCompletionSequence()
                 } else if (calibrationStartedByUser) {
-                    binding.statusText.text = getString(R.string.tracking_setup_connecting)
                     setCalibrationButtonCalibrating()
                 } else {
-                    binding.statusText.text = getString(R.string.tracking_setup_idle)
                     setCalibrationButtonReady(enabled = true)
                 }
             }
@@ -263,7 +261,7 @@ class TrackingSetupActivity : AppCompatActivity() {
         playIconCompletionAnimation()
         completionJob?.cancel()
         completionJob = uiScope.launch {
-            delay(2000L)
+            delay(1000L)
             if (
                 calibrationStartedByUser &&
                 calibrationProgressObserved &&

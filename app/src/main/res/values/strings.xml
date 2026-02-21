@@ -27,7 +27,7 @@
     <string name="tracking_setup_calibration_complete">Calibration complete</string>
     <string name="tracking_setup_calibration_complete_button">Calibration Complete</string>
     <string name="tracking_setup_checkmark">✓</string>
-    <string name="tracking_ready_step">Put the glasses back on and set Display &gt; 3D Mode to Full SBS</string>
+    <string name="tracking_ready_step">Put the glasses back on and set Display\u00A0&gt;\u00A03D\u00A0Mode to "Full SBS"</string>
     <string name="tracking_ready_continue">Continue to VR Player</string>
     <string name="tracking_ready_zero_failed">zero view failed</string>
     <string name="tracking_setup_error">Tracking error: %1$s</string>
