@@ -8,15 +8,15 @@ It plays SBS/VR video in the glasses, keeps controls on the phone, and uses XREA
 
 - XREAL One or XREAL One Pro glasses
 - Android 13+ phone (`minSdk = 33`)
-- Not compatible with Samsung DeX off (use screen mirroring instead)
+- Samsung DeX desktop mode is not supported (use screen mirroring instead)
 
 ## App Guide
 
 1. Connect your XREAL One glasses.
 2. Open a video from file, URL, or share.
-3. In tracking setup, place the glasses on a flat surface and run calibration.
-4. Put the glasses on and tap Zero View.
-5. On the glasses, open `Display > 3D Mode` and switch to `Full SBS`.
+3. In setup step 1, place the glasses on a flat surface and run calibration.
+4. In setup step 2, put the glasses back on and switch `Display > 3D Mode` to `Full SBS`.
+5. Tap `Continue to VR Player` (the app applies Zero View automatically).
 6. Start playback and use phone controls to play, pause, seek, rewind, and fast-forward.
 
 Samsung DeX warning: DeX desktop mode is not supported for playback. If DeX is on, turn it off and use screen mirroring.

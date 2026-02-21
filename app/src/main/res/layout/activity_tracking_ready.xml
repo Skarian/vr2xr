@@ -27,7 +27,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="center_horizontal"
-            android:text="@string/tracking_setup_step1" />
+            android:text="@string/tracking_ready_step" />
 
         <ImageView
             android:id="@+id/setupGlassesIcon"
@@ -38,29 +38,20 @@
             android:contentDescription="@string/xreal_status_icon_content_description"
             android:src="@drawable/ic_glasses_status" />
 
-        <TextView
-            android:id="@+id/statusText"
-            style="@style/TextAppearance.Vr2xr.Setup.Status"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/setup_status_top_margin"
-            android:gravity="center_horizontal"
-            android:text="@string/tracking_setup_idle" />
-
         <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/setup_button_top_margin">
 
             <com.google.android.material.button.MaterialButton
-                android:id="@+id/runCalibrationButton"
+                android:id="@+id/continueButton"
                 style="@style/Widget.Vr2xr.Launcher.PrimaryButton"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/run_calibration" />
+                android:text="@string/tracking_ready_continue" />
 
             <com.google.android.material.progressindicator.CircularProgressIndicator
-                android:id="@+id/calibrationProgressIndicator"
+                android:id="@+id/continueProgressIndicator"
                 android:layout_width="@dimen/setup_button_indicator_size"
                 android:layout_height="@dimen/setup_button_indicator_size"
                 android:layout_gravity="start|center_vertical"
@@ -71,18 +62,6 @@
                 app:indicatorSize="@dimen/setup_button_indicator_size"
                 app:trackThickness="@dimen/setup_button_indicator_thickness"
                 app:trackColor="@android:color/transparent" />
-
-            <TextView
-                android:id="@+id/calibrationCheckMark"
-                android:layout_width="@dimen/setup_button_indicator_size"
-                android:layout_height="@dimen/setup_button_indicator_size"
-                android:layout_gravity="start|center_vertical"
-                android:layout_marginStart="@dimen/setup_button_indicator_margin_start"
-                android:gravity="center"
-                android:text="@string/tracking_setup_checkmark"
-                android:textColor="@color/catppuccin_mocha_mantle"
-                android:textSize="@dimen/setup_checkmark_text_size"
-                android:visibility="gone" />
         </FrameLayout>
 
         <Space

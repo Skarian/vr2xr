@@ -15,4 +15,12 @@
     <dimen name="launcher_footer_text_size">13sp</dimen>
     <dimen name="launcher_footer_top_margin">20dp</dimen>
     <dimen name="launcher_icon_nudge_distance">12dp</dimen>
+    <dimen name="setup_glasses_icon_size">168dp</dimen>
+    <dimen name="setup_glasses_icon_top_margin">40dp</dimen>
+    <dimen name="setup_status_top_margin">22dp</dimen>
+    <dimen name="setup_button_top_margin">28dp</dimen>
+    <dimen name="setup_button_indicator_size">14dp</dimen>
+    <dimen name="setup_button_indicator_margin_start">16dp</dimen>
+    <dimen name="setup_button_indicator_thickness">2dp</dimen>
+    <dimen name="setup_checkmark_text_size">13sp</dimen>
 </resources>

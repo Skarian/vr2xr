@@ -1,9 +1,13 @@
 package com.vr2xr.app
 
+import android.animation.AnimatorSet
+import android.animation.ObjectAnimator
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.view.View
 import androidx.appcompat.app.AppCompatActivity
+import androidx.interpolator.view.animation.FastOutSlowInInterpolator
 import com.vr2xr.R
 import com.vr2xr.databinding.ActivityTrackingSetupBinding
 import com.vr2xr.source.SourceDescriptor
@@ -14,6 +18,7 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class TrackingSetupActivity : AppCompatActivity() {
@@ -23,9 +28,13 @@ class TrackingSetupActivity : AppCompatActivity() {
     private val trackingManager by lazy { (application as Vr2xrApplication).trackingSessionManager }
 
     private var currentSessionState: XrSessionState = XrSessionState.Idle
-    private var zeroViewApplied = false
+    private var calibrationStartedByUser = false
+    private var calibrationProgressObserved = false
+    private var completionSequenceStarted = false
+    private var readyPageLaunched = false
     private var sessionStateJob: Job? = null
     private var actionJob: Job? = null
+    private var completionJob: Job? = null
 
     private val source: SourceDescriptor? by lazy {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -47,8 +56,6 @@ class TrackingSetupActivity : AppCompatActivity() {
         }
 
         binding.runCalibrationButton.setOnClickListener { runCalibration() }
-        binding.zeroViewButton.setOnClickListener { runZeroView() }
-        binding.continueButton.setOnClickListener { continueToPlayer() }
         renderSessionState(XrSessionState.Idle)
     }
 
@@ -63,6 +70,11 @@ class TrackingSetupActivity : AppCompatActivity() {
         sessionStateJob = null
         actionJob?.cancel()
         actionJob = null
+        completionJob?.cancel()
+        completionJob = null
+        if (!readyPageLaunched) {
+            completionSequenceStarted = false
+        }
     }
 
     override fun onDestroy() {
@@ -81,97 +93,186 @@ class TrackingSetupActivity : AppCompatActivity() {
     }
 
     private fun runCalibration() {
-        if (currentSessionState is XrSessionState.Connecting || currentSessionState is XrSessionState.Calibrating) {
+        if (
+            currentSessionState is XrSessionState.Connecting ||
+            currentSessionState is XrSessionState.Calibrating ||
+            completionSequenceStarted
+        ) {
             return
         }
+        calibrationStartedByUser = true
+        calibrationProgressObserved = false
+        completionSequenceStarted = false
+        readyPageLaunched = false
+        setCalibrationButtonCalibrating()
         actionJob?.cancel()
         actionJob = uiScope.launch {
             if (currentSessionState is XrSessionState.Streaming) {
                 trackingManager.recalibrate()
                     .onFailure { error ->
+                        calibrationStartedByUser = false
+                        calibrationProgressObserved = false
                         errors.show(getString(R.string.tracking_action_failed, error.message ?: "recalibration failed"))
+                        renderSessionState(currentSessionState)
                     }
             } else {
                 trackingManager.runCalibration()
                     .onFailure { error ->
+                        calibrationStartedByUser = false
+                        calibrationProgressObserved = false
                         errors.show(getString(R.string.tracking_action_failed, error.message ?: "calibration failed"))
+                        renderSessionState(currentSessionState)
                     }
             }
         }
     }
 
-    private fun runZeroView() {
-        actionJob?.cancel()
-        actionJob = uiScope.launch {
-            trackingManager.zeroView()
-                .onSuccess {
-                    zeroViewApplied = true
-                    binding.statusText.text = getString(R.string.tracking_setup_zero_done)
-                    binding.continueButton.isEnabled = true
-                }
-                .onFailure { error ->
-                    errors.show(getString(R.string.tracking_action_failed, error.message ?: "zero view failed"))
-                }
-        }
-    }
-
-    private fun continueToPlayer() {
+    private fun launchReadyStep() {
         val resolvedSource = source ?: return
+        if (readyPageLaunched) {
+            return
+        }
+        readyPageLaunched = true
         startActivity(
-            Intent(this, PlayerActivity::class.java)
+            Intent(this, TrackingReadyActivity::class.java)
                 .putExtra(PlayerActivity.EXTRA_SOURCE, resolvedSource)
         )
         finish()
     }
 
     private fun renderSessionState(state: XrSessionState) {
+        currentSessionState = state
         when (state) {
             XrSessionState.Idle,
             XrSessionState.Stopped -> {
                 binding.instructionText.text = getString(R.string.tracking_setup_step1)
                 binding.statusText.text = getString(R.string.tracking_setup_idle)
-                binding.runCalibrationButton.isEnabled = true
-                binding.zeroViewButton.isEnabled = false
-                binding.continueButton.isEnabled = false
-                zeroViewApplied = false
+                setCalibrationButtonReady(enabled = true)
             }
 
             XrSessionState.Connecting -> {
                 binding.instructionText.text = getString(R.string.tracking_setup_step1)
                 binding.statusText.text = getString(R.string.tracking_setup_connecting)
-                binding.runCalibrationButton.isEnabled = false
-                binding.zeroViewButton.isEnabled = false
-                binding.continueButton.isEnabled = false
+                if (calibrationStartedByUser) {
+                    calibrationProgressObserved = true
+                }
+                setCalibrationButtonCalibrating()
             }
 
             is XrSessionState.Calibrating -> {
-                val target = state.calibrationTarget.coerceAtLeast(1)
                 binding.instructionText.text = getString(R.string.tracking_setup_step1)
-                binding.statusText.text = getString(
-                    R.string.tracking_setup_calibrating,
-                    state.calibrationSampleCount,
-                    target
-                )
-                binding.runCalibrationButton.isEnabled = false
-                binding.zeroViewButton.isEnabled = false
-                binding.continueButton.isEnabled = false
+                binding.statusText.text = getString(R.string.tracking_setup_calibrating_simple)
+                if (calibrationStartedByUser) {
+                    calibrationProgressObserved = true
+                }
+                setCalibrationButtonCalibrating()
             }
 
             is XrSessionState.Streaming -> {
-                binding.instructionText.text = getString(R.string.tracking_setup_step2)
-                binding.statusText.text = getString(R.string.tracking_setup_streaming)
-                binding.runCalibrationButton.isEnabled = true
-                binding.zeroViewButton.isEnabled = true
-                binding.continueButton.isEnabled = zeroViewApplied
+                binding.instructionText.text = getString(R.string.tracking_setup_step1)
+                if (calibrationStartedByUser && calibrationProgressObserved) {
+                    binding.statusText.text = getString(R.string.tracking_setup_calibration_complete)
+                    setCalibrationButtonComplete(animated = false)
+                    startCompletionSequence()
+                } else if (calibrationStartedByUser) {
+                    binding.statusText.text = getString(R.string.tracking_setup_connecting)
+                    setCalibrationButtonCalibrating()
+                } else {
+                    binding.statusText.text = getString(R.string.tracking_setup_idle)
+                    setCalibrationButtonReady(enabled = true)
+                }
             }
 
             is XrSessionState.Error -> {
                 binding.instructionText.text = getString(R.string.tracking_setup_step1)
                 binding.statusText.text = getString(R.string.tracking_setup_error, state.message)
-                binding.runCalibrationButton.isEnabled = true
-                binding.zeroViewButton.isEnabled = false
-                binding.continueButton.isEnabled = false
-                zeroViewApplied = false
+                calibrationStartedByUser = false
+                calibrationProgressObserved = false
+                completionSequenceStarted = false
+                completionJob?.cancel()
+                completionJob = null
+                setCalibrationButtonReady(enabled = true)
+            }
+        }
+    }
+
+    private fun setCalibrationButtonReady(enabled: Boolean) {
+        binding.runCalibrationButton.isEnabled = enabled
+        binding.runCalibrationButton.text = getString(R.string.run_calibration)
+        binding.calibrationProgressIndicator.visibility = View.GONE
+        binding.calibrationCheckMark.visibility = View.GONE
+    }
+
+    private fun setCalibrationButtonCalibrating() {
+        binding.runCalibrationButton.isEnabled = false
+        binding.runCalibrationButton.text = getString(R.string.tracking_setup_calibrating_simple)
+        binding.calibrationProgressIndicator.visibility = View.VISIBLE
+        binding.calibrationCheckMark.visibility = View.GONE
+    }
+
+    private fun setCalibrationButtonComplete(animated: Boolean) {
+        binding.runCalibrationButton.isEnabled = false
+        binding.runCalibrationButton.text = getString(R.string.tracking_setup_calibration_complete_button)
+        binding.calibrationProgressIndicator.visibility = View.GONE
+        binding.calibrationCheckMark.visibility = View.VISIBLE
+        if (animated) {
+            animateCheckMark()
+        } else {
+            binding.calibrationCheckMark.alpha = 1f
+            binding.calibrationCheckMark.scaleX = 1f
+            binding.calibrationCheckMark.scaleY = 1f
+        }
+    }
+
+    private fun animateCheckMark() {
+        binding.calibrationCheckMark.alpha = 0f
+        binding.calibrationCheckMark.scaleX = 0.4f
+        binding.calibrationCheckMark.scaleY = 0.4f
+        AnimatorSet().apply {
+            duration = 420L
+            interpolator = FastOutSlowInInterpolator()
+            playTogether(
+                ObjectAnimator.ofFloat(binding.calibrationCheckMark, View.ALPHA, 0f, 1f),
+                ObjectAnimator.ofFloat(binding.calibrationCheckMark, View.SCALE_X, 0.4f, 1.15f, 1f),
+                ObjectAnimator.ofFloat(binding.calibrationCheckMark, View.SCALE_Y, 0.4f, 1.15f, 1f)
+            )
+            start()
+        }
+    }
+
+    private fun playIconCompletionAnimation() {
+        val nudgeDistance = resources.getDimension(R.dimen.launcher_icon_nudge_distance)
+        AnimatorSet().apply {
+            duration = 460L
+            interpolator = FastOutSlowInInterpolator()
+            playTogether(
+                ObjectAnimator.ofFloat(binding.setupGlassesIcon, View.TRANSLATION_Y, 0f, -nudgeDistance, 0f),
+                ObjectAnimator.ofFloat(binding.setupGlassesIcon, View.SCALE_X, 1f, 1.14f, 1f),
+                ObjectAnimator.ofFloat(binding.setupGlassesIcon, View.SCALE_Y, 1f, 1.14f, 1f)
+            )
+            start()
+        }
+    }
+
+    private fun startCompletionSequence() {
+        if (completionSequenceStarted || readyPageLaunched) {
+            return
+        }
+        completionSequenceStarted = true
+        setCalibrationButtonComplete(animated = true)
+        playIconCompletionAnimation()
+        completionJob?.cancel()
+        completionJob = uiScope.launch {
+            delay(2000L)
+            if (
+                calibrationStartedByUser &&
+                calibrationProgressObserved &&
+                currentSessionState is XrSessionState.Streaming
+            ) {
+                launchReadyStep()
+            } else {
+                completionSequenceStarted = false
+                renderSessionState(currentSessionState)
             }
         }
     }

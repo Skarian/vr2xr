@@ -42,6 +42,11 @@
             android:screenOrientation="sensorPortrait" />
 
         <activity
+            android:name=".app.TrackingReadyActivity"
+            android:exported="false"
+            android:screenOrientation="sensorPortrait" />
+
+        <activity
             android:name=".app.MainActivity"
             android:exported="true"
             android:screenOrientation="sensorPortrait">
