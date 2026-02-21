@@ -13,9 +13,9 @@
             android:id="@+id/sourceText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="#99000000"
+            android:background="@color/player_source_background"
             android:padding="8dp"
-            android:textColor="#FFFFFFFF"
+            android:textColor="@color/overlay_text_primary"
             android:textSize="12sp" />
 
         <android.opengl.GLSurfaceView
@@ -28,14 +28,14 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:background="#CC101010"
+            android:background="@color/player_controls_background"
             android:padding="10dp">
 
             <TextView
                 android:id="@+id/routeStatusText"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textColor="#FFFFFFFF"
+                android:textColor="@color/overlay_text_primary"
                 android:textSize="12sp"
                 android:text="@string/route_status_placeholder" />
 
@@ -44,7 +44,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
-                android:textColor="#FFFFFFFF"
+                android:textColor="@color/overlay_text_primary"
                 android:textSize="12sp"
                 android:text="@string/tracking_status_placeholder" />
 

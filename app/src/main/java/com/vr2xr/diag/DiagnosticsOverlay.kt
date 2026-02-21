@@ -4,11 +4,13 @@ import android.content.Context
 import android.view.Gravity
 import android.widget.FrameLayout
 import android.widget.TextView
+import androidx.core.content.ContextCompat
+import com.vr2xr.R
 
 class DiagnosticsOverlay(context: Context) : FrameLayout(context) {
     private val textView = TextView(context).apply {
-        setBackgroundColor(0x88000000.toInt())
-        setTextColor(0xFFFFFFFF.toInt())
+        setBackgroundColor(ContextCompat.getColor(context, R.color.overlay_background))
+        setTextColor(ContextCompat.getColor(context, R.color.overlay_text_primary))
         textSize = 11f
         setPadding(12, 12, 12, 12)
     }
@@ -24,7 +26,7 @@ class DiagnosticsOverlay(context: Context) : FrameLayout(context) {
             appendLine("Display: ${state.displaySummary}")
             appendLine("Tracking: ${state.trackingSummary}")
             appendLine("Decoder: ${state.decoderSummary}")
-            append("Dropped: ${state.droppedFrames}")
+            append("Playback: ${state.playbackSummary}")
         }
     }
 }
@@ -33,5 +35,5 @@ data class DiagnosticsState(
     val displaySummary: String = "none",
     val trackingSummary: String = "unavailable",
     val decoderSummary: String = "unknown",
-    val droppedFrames: Long = 0
+    val playbackSummary: String = "unavailable"
 )

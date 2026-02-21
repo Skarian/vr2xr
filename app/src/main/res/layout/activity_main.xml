@@ -26,10 +26,10 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:background="#33B00020"
+        android:background="@color/dex_warning_background"
         android:padding="10dp"
         android:text="@string/dex_mode_warning"
-        android:textColor="#B00020"
+        android:textColor="@color/dex_warning_text"
         android:textSize="14sp" />
 
     <EditText

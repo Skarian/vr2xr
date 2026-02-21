@@ -73,10 +73,13 @@ class SourceResolver {
     }
 
     fun resolveUri(context: Context, uri: Uri, persistPermission: Boolean): Result<SourceDescriptor> {
-        if (persistPermission) {
-            tryTakePersistablePermission(context, uri)
-        }
         val scheme = uri.scheme?.lowercase()
+        if (persistPermission) {
+            val persistFailure = takePersistablePermission(context, uri, scheme)
+            if (persistFailure != null) {
+                return Result.failure(persistFailure)
+            }
+        }
         return when (scheme) {
             ContentResolver.SCHEME_CONTENT, ContentResolver.SCHEME_FILE -> Result.success(
                 SourceDescriptor(
@@ -92,12 +95,27 @@ class SourceResolver {
         }
     }
 
-    private fun tryTakePersistablePermission(context: Context, uri: Uri) {
-        runCatching {
+    private fun takePersistablePermission(
+        context: Context,
+        uri: Uri,
+        scheme: String?
+    ): Throwable? {
+        if (scheme != ContentResolver.SCHEME_CONTENT) {
+            return null
+        }
+        return runCatching {
             context.contentResolver.takePersistableUriPermission(
                 uri,
                 Intent.FLAG_GRANT_READ_URI_PERMISSION
             )
+            null
+        }.getOrElse { error ->
+            PersistablePermissionException(uri = uri, cause = error)
         }
     }
 }
+
+class PersistablePermissionException(
+    uri: Uri,
+    cause: Throwable
+) : IllegalStateException("Unable to persist permission for selected source: $uri", cause)

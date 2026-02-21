@@ -57,23 +57,8 @@ class DisplayRouteStateMachineTest {
             DisplayRouteSnapshot(
                 externalDisplayId = null,
                 externalSurfaceReady = false,
-                activeRoute = ActiveRoute.NONE,
-                activeSurfaceBound = false
-            )
-        )
-
-        assertEquals(DisplayRouteState.NoOutput, decision.state)
-        assertEquals(RouteTarget.NONE, decision.target)
-    }
-
-    @Test
-    fun noOutputWhenNoSurfaceAndNoExternalDisplay() {
-        val decision = machine.decide(
-            DisplayRouteSnapshot(
-                externalDisplayId = null,
-                externalSurfaceReady = false,
-                activeRoute = ActiveRoute.NONE,
-                activeSurfaceBound = false
+                activeRoute = ActiveRoute.EXTERNAL,
+                activeSurfaceBound = true
             )
         )
 

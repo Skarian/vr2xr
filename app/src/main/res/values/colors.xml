@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="dex_warning_background">#33B00020</color>
+    <color name="dex_warning_text">#B00020</color>
+    <color name="player_source_background">#99000000</color>
+    <color name="player_controls_background">#CC101010</color>
+    <color name="overlay_text_primary">#FFFFFFFF</color>
+    <color name="overlay_background">#88000000</color>
+    <color name="xreal_status_connected">#2E7D32</color>
+    <color name="xreal_status_error">#C62828</color>
+    <color name="xreal_status_not_connected">#B26A00</color>
+</resources>
