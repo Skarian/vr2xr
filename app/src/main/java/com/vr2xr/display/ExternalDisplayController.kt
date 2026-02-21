@@ -12,14 +12,17 @@ class ExternalDisplayController(
     private var started = false
     private val displayListener = object : DisplayManager.DisplayListener {
         override fun onDisplayAdded(displayId: Int) {
+            if (!started) return
             listener?.onModeChanged(currentPhysicalMode())
         }
 
         override fun onDisplayRemoved(displayId: Int) {
+            if (!started) return
             listener?.onModeChanged(currentPhysicalMode())
         }
 
         override fun onDisplayChanged(displayId: Int) {
+            if (!started) return
             listener?.onModeChanged(currentPhysicalMode())
         }
     }

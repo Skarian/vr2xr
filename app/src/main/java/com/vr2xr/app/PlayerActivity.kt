@@ -1,17 +1,24 @@
 package com.vr2xr.app
 
+import android.content.ComponentName
 import android.opengl.GLSurfaceView
 import android.os.Build
 import android.os.Bundle
-import android.view.MotionEvent
+import android.os.SystemClock
+import android.util.Log
 import android.view.Surface
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import androidx.media3.session.MediaController
+import androidx.media3.session.SessionToken
+import com.google.common.util.concurrent.ListenableFuture
 import com.vr2xr.R
 import com.vr2xr.databinding.ActivityPlayerBinding
 import com.vr2xr.diag.DiagnosticsOverlay
 import com.vr2xr.diag.DiagnosticsState
+import com.vr2xr.diag.PlaybackDiagnosticsConfig
 import com.vr2xr.display.ActiveRoute
 import com.vr2xr.display.DisplayRouteSnapshot
 import com.vr2xr.display.DisplayRouteState
@@ -23,6 +30,7 @@ import com.vr2xr.display.RouteTarget
 import com.vr2xr.display.asDebugLabel
 import com.vr2xr.player.CodecCapabilityProbe
 import com.vr2xr.player.PlaybackSessionOwner
+import com.vr2xr.player.VrPlaybackService
 import com.vr2xr.render.RenderMode
 import com.vr2xr.render.VrSbsRenderer
 import com.vr2xr.source.SourceDescriptor
@@ -30,8 +38,6 @@ import com.vr2xr.tracking.OneProTrackingSessionManager
 import com.vr2xr.tracking.PoseState
 import io.onepro.xr.XrBiasState
 import io.onepro.xr.XrSessionState
-import kotlin.math.cos
-import kotlin.math.sin
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
@@ -45,36 +51,33 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var displayController: ExternalDisplayController
     private lateinit var internalRenderer: VrSbsRenderer
     private lateinit var trackingManager: OneProTrackingSessionManager
+    private lateinit var routeBinding: PlayerRouteBinding
 
     private val routeStateMachine = DisplayRouteStateMachine()
     private var routeState: DisplayRouteState = DisplayRouteState.NoOutput
-    private var activeRoute: ActiveRoute = ActiveRoute.NONE
 
     private var decoderSummary: String = "unknown"
-    private var activeSurface: Surface? = null
     private var internalSurface: Surface? = null
     private var externalSurface: Surface? = null
     private var externalPresentation: ExternalGlPresentation? = null
     private var externalPresentationModeSignature: DisplayModeSignature? = null
     private var externalPresentationToken: Long = 0L
     private var latestPose: PoseState = PoseState()
-    private var trackingSummary: String = "manual touch controls"
-    private var manualYawRad: Float = 0f
-    private var manualPitchRad: Float = 0f
-    private var lastTouchX: Float = 0f
-    private var lastTouchY: Float = 0f
+    private var trackingSummary: String = ""
 
     private val renderMode = RenderMode()
     private val errors by lazy { ErrorUiController(this) }
 
     private var latestSessionState: XrSessionState = XrSessionState.Idle
     private var latestBiasState: XrBiasState = XrBiasState.Inactive
-    private var wasStreaming = false
 
     private var trackingSessionStateJob: Job? = null
     private var trackingBiasStateJob: Job? = null
     private var trackingPoseJob: Job? = null
+    private var playbackSessionStateJob: Job? = null
     private var externalReconnectWatchdogJob: Job? = null
+    private var pausedFrameContinuityJob: Job? = null
+    private var mediaControllerFuture: ListenableFuture<MediaController>? = null
 
     private val source: SourceDescriptor? by lazy {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -83,6 +86,9 @@ class PlayerActivity : AppCompatActivity() {
             @Suppress("DEPRECATION")
             intent.getParcelableExtra(EXTRA_SOURCE)
         }
+    }
+    private val resumeExisting: Boolean by lazy {
+        intent.getBooleanExtra(EXTRA_RESUME_EXISTING, false)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -93,14 +99,18 @@ class PlayerActivity : AppCompatActivity() {
         val app = application as Vr2xrApplication
         trackingManager = app.trackingSessionManager
         playbackSession = app.playbackSessionOwner
+        routeBinding = PlayerRouteBinding(playbackSession)
 
         displayController = ExternalDisplayController(
             context = this,
             listener = object : ExternalDisplayController.Listener {
                 override fun onModeChanged(mode: PhysicalDisplayMode?) {
                     runOnUiThread {
+                        if (!canProcessRouting("display-mode-changed")) {
+                            return@runOnUiThread
+                        }
                         syncExternalPresentation()
-                        updateRouting()
+                        updateRouting("display-mode-changed")
                     }
                 }
             }
@@ -108,6 +118,7 @@ class PlayerActivity : AppCompatActivity() {
 
         diagnosticsOverlay = DiagnosticsOverlay(this)
         binding.diagnosticsContainer.addView(diagnosticsOverlay)
+        binding.diagnosticsContainer.visibility = View.GONE
 
         val resolvedSource = source
         if (resolvedSource == null) {
@@ -135,16 +146,19 @@ class PlayerActivity : AppCompatActivity() {
         binding.videoSurface.renderMode = GLSurfaceView.RENDERMODE_CONTINUOUSLY
         internalRenderer.setRenderMode(renderMode)
         internalRenderer.setPose(latestPose)
-        binding.videoSurface.setOnTouchListener { _, event -> handleLookTouch(event) }
 
-        binding.transportControls.player = playbackSession.player
+        binding.transportControls.player = null
         binding.transportControls.show()
+        connectMediaController()
 
         binding.recenterButton.setOnClickListener { recenterView() }
         binding.calibrateButton.setOnClickListener { runCalibration() }
         binding.zeroViewButton.setOnClickListener { runZeroView() }
 
-        playbackSession.attachSource(resolvedSource, forceReset = savedInstanceState == null)
+        val currentSessionSource = playbackSession.state.value.source
+        val shouldForceReset = savedInstanceState == null &&
+            !(resumeExisting && currentSessionSource?.normalized == resolvedSource.normalized)
+        playbackSession.attachSource(resolvedSource, forceReset = shouldForceReset)
         updateTrackingSummary()
         updateTrackingControls()
         renderRouteStatus()
@@ -153,31 +167,46 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
+        routeBinding.onStart()
+        connectMediaController()
         displayController.start()
         binding.videoSurface.onResume()
         syncExternalPresentation()
-        val pose = buildManualPose()
-        latestPose = pose
-        applyPoseToRenderers(pose)
+        applyPoseToRenderers(latestPose)
         attachTrackingCollectors()
-        updateRouting()
+        attachPlaybackSessionCollector()
+        updateRouting("activity-start")
         updateDiagnostics()
         startExternalReconnectWatchdog()
     }
 
+    override fun onPause() {
+        if (!isChangingConfigurations) {
+            logRouting("onPause -> pauseForAppBackground")
+            playbackSession.pauseForAppBackground()
+        }
+        super.onPause()
+    }
+
     override fun onStop() {
-        super.onStop()
+        routeBinding.onTeardownBegin()
+        displayController.stop()
+        externalReconnectWatchdogJob?.cancel()
+        externalReconnectWatchdogJob = null
+        pausedFrameContinuityJob?.cancel()
+        pausedFrameContinuityJob = null
+        playbackSessionStateJob?.cancel()
+        playbackSessionStateJob = null
+        logRouting("onStop teardown -> clear/dismiss")
+        clearActiveSurface(force = true)
         dismissExternalPresentation()
-        clearActiveSurface()
         if (::internalRenderer.isInitialized) {
             binding.videoSurface.onPause()
         }
-        displayController.stop()
+        super.onStop()
         if (!isChangingConfigurations) {
-            playbackSession.pauseForInterruption()
+            releaseMediaController()
         }
-        externalReconnectWatchdogJob?.cancel()
-        externalReconnectWatchdogJob = null
         trackingSessionStateJob?.cancel()
         trackingSessionStateJob = null
         trackingBiasStateJob?.cancel()
@@ -187,8 +216,10 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        routeBinding.onTeardownBegin()
+        clearActiveSurface(force = true)
         dismissExternalPresentation()
-        clearActiveSurface()
+        releaseMediaController()
         if (::internalRenderer.isInitialized) {
             internalRenderer.release()
         }
@@ -197,6 +228,41 @@ class PlayerActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_SOURCE = "extra_source"
+        const val EXTRA_RESUME_EXISTING = "extra_resume_existing"
+    }
+
+    private fun connectMediaController() {
+        if (mediaControllerFuture != null) {
+            return
+        }
+        val token = SessionToken(this, ComponentName(this, VrPlaybackService::class.java))
+        val future = MediaController.Builder(this, token).buildAsync()
+        mediaControllerFuture = future
+        future.addListener(
+            {
+                if (mediaControllerFuture !== future) {
+                    MediaController.releaseFuture(future)
+                    return@addListener
+                }
+                runCatching { future.get() }
+                    .onSuccess { controller ->
+                        binding.transportControls.player = controller
+                        binding.transportControls.show()
+                    }
+                    .onFailure { error ->
+                        val detail = error.message ?: getString(R.string.error_unknown)
+                        errors.show(getString(R.string.error_connect_playback_service, detail))
+                    }
+            },
+            ContextCompat.getMainExecutor(this)
+        )
+    }
+
+    private fun releaseMediaController() {
+        binding.transportControls.player = null
+        val future = mediaControllerFuture ?: return
+        mediaControllerFuture = null
+        MediaController.releaseFuture(future)
     }
 
     private fun attachTrackingCollectors() {
@@ -232,33 +298,40 @@ class PlayerActivity : AppCompatActivity() {
         externalReconnectWatchdogJob?.cancel()
         externalReconnectWatchdogJob = lifecycleScope.launch {
             while (isActive) {
+                if (!canProcessRouting("reconnect-watchdog-loop")) {
+                    delay(EXTERNAL_RECONNECT_WATCHDOG_MS)
+                    continue
+                }
                 if (routeState !is DisplayRouteState.ExternalActive) {
                     syncExternalPresentation()
-                    updateRouting()
+                    updateRouting("reconnect-watchdog")
                 }
                 delay(EXTERNAL_RECONNECT_WATCHDOG_MS)
             }
         }
     }
 
+    private fun attachPlaybackSessionCollector() {
+        playbackSessionStateJob?.cancel()
+        playbackSessionStateJob = lifecycleScope.launch {
+            playbackSession.state.collect {
+                maybeEnsurePausedFrameVisibility()
+                updateDiagnostics()
+            }
+        }
+    }
+
     private fun handleTrackingSessionState(state: XrSessionState) {
         latestSessionState = state
-        val streaming = state is XrSessionState.Streaming
-        if (!streaming && wasStreaming) {
-            manualYawRad = latestPose.yaw
-            manualPitchRad = latestPose.pitch
-            val manualPose = buildManualPose()
-            latestPose = manualPose
-            applyPoseToRenderers(manualPose)
-        }
-        wasStreaming = streaming
         updateTrackingControls()
         updateTrackingSummary()
         updateDiagnostics()
     }
 
     private fun updateTrackingControls() {
-        binding.zeroViewButton.isEnabled = latestSessionState is XrSessionState.Streaming
+        val isStreaming = latestSessionState is XrSessionState.Streaming
+        binding.zeroViewButton.isEnabled = isStreaming
+        binding.recenterButton.isEnabled = isStreaming
     }
 
     private fun updateTrackingSummary() {
@@ -332,12 +405,15 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun syncExternalPresentation() {
+        if (!canProcessRouting("sync-external-presentation")) {
+            return
+        }
         val display = displayController.currentPresentationDisplay()
         if (display == null) {
             if (externalPresentation?.isShowing != true) {
                 dismissExternalPresentation()
             }
-            updateRouting()
+            updateRouting("no-external-display")
             return
         }
 
@@ -361,17 +437,21 @@ class PlayerActivity : AppCompatActivity() {
                 listener = object : ExternalGlPresentation.Listener {
                     override fun onVideoSurfaceReady(surface: Surface) {
                         runOnUiThread {
-                            if (token != externalPresentationToken) {
+                            if (token != externalPresentationToken ||
+                                !canProcessRouting("external-surface-ready")
+                            ) {
                                 return@runOnUiThread
                             }
                             externalSurface = surface
-                            updateRouting()
+                            updateRouting("external-surface-ready")
                         }
                     }
 
                     override fun onVideoSurfaceDestroyed() {
                         runOnUiThread {
-                            if (token != externalPresentationToken) {
+                            if (token != externalPresentationToken ||
+                                !canProcessRouting("external-surface-destroyed")
+                            ) {
                                 return@runOnUiThread
                             }
                             onExternalSurfaceDestroyed()
@@ -393,11 +473,12 @@ class PlayerActivity : AppCompatActivity() {
             if (token != externalPresentationToken) {
                 return@onFailure
             }
-            errors.show("Failed to start external presentation: ${it.message ?: "unknown error"}")
+            val detail = it.message ?: getString(R.string.error_unknown)
+            errors.show(getString(R.string.error_start_external_presentation, detail))
             externalPresentation = null
             externalSurface = null
             externalPresentationModeSignature = null
-            updateRouting()
+            updateRouting("external-presentation-failure")
         }
     }
 
@@ -411,40 +492,51 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun onInternalSurfaceReady(surface: Surface) {
         internalSurface = surface
-        updateRouting()
+        if (!canProcessRouting("internal-surface-ready")) {
+            return
+        }
+        updateRouting("internal-surface-ready")
     }
 
     private fun onInternalSurfaceDestroyed() {
         val destroyedSurface = internalSurface
-        if (destroyedSurface != null && activeSurface === destroyedSurface) {
-            playbackSession.clearSurface(destroyedSurface)
-            activeSurface = null
-            activeRoute = ActiveRoute.NONE
-        }
         internalSurface = null
-        updateRouting()
+        routeBinding.onSurfaceDestroyed(
+            surface = destroyedSurface,
+            clearSessionSurface = canProcessRouting("internal-surface-destroyed"),
+            log = ::logRouting
+        )
+        updateRouting("internal-surface-destroyed")
     }
 
     private fun onExternalSurfaceDestroyed() {
         val destroyedSurface = externalSurface
-        if (destroyedSurface != null && activeSurface === destroyedSurface) {
-            playbackSession.clearSurface(destroyedSurface)
-            activeSurface = null
-            activeRoute = ActiveRoute.NONE
-        }
         externalSurface = null
-        updateRouting()
+        routeBinding.onSurfaceDestroyed(
+            surface = destroyedSurface,
+            clearSessionSurface = canProcessRouting("external-surface-destroyed"),
+            log = ::logRouting
+        )
+        updateRouting("external-surface-destroyed")
     }
 
-    private fun updateRouting() {
+    private fun updateRouting(trigger: String) {
+        if (!canProcessRouting("update-routing:$trigger")) {
+            return
+        }
         val snapshot = DisplayRouteSnapshot(
             externalDisplayId = displayController.currentPresentationDisplay()?.displayId
                 ?: externalPresentation?.display?.displayId,
             externalSurfaceReady = externalSurface != null,
-            activeRoute = activeRoute,
-            activeSurfaceBound = activeSurface != null
+            activeRoute = routeBinding.activeRoute,
+            activeSurfaceBound = routeBinding.activeSurface != null
         )
         val decision = routeStateMachine.decide(snapshot)
+        logRouting(
+            "updateRouting trigger=$trigger target=${decision.target} state=${decision.state.asDebugLabel()} " +
+                "activeRoute=${routeBinding.activeRoute} activeSurface=${routeBinding.activeSurface != null} " +
+                "externalSurface=${externalSurface != null}"
+        )
         routeState = decision.state
         var externalSurfaceRebound = false
 
@@ -454,8 +546,8 @@ class PlayerActivity : AppCompatActivity() {
             }
             RouteTarget.HOLD_CURRENT -> Unit
             RouteTarget.NONE -> {
-                clearActiveSurface()
                 playbackSession.pauseForInterruption()
+                clearActiveSurface()
             }
         }
         if (routeState is DisplayRouteState.ExternalActive) {
@@ -465,37 +557,66 @@ class PlayerActivity : AppCompatActivity() {
             playbackSession.resumeIfExpected()
         }
 
+        maybeEnsurePausedFrameVisibility()
         renderRouteStatus()
         updateDiagnostics()
     }
 
     private fun bindSurface(surface: Surface?, route: ActiveRoute): Boolean {
-        if (surface == null) {
-            clearActiveSurface()
-            return false
-        }
-        if (activeSurface === surface && activeRoute == route) {
-            return false
-        }
-
-        val previousSurface = activeSurface
-        if (previousSurface != null && previousSurface !== surface) {
-            playbackSession.clearSurface(previousSurface)
-        }
-
-        playbackSession.bindSurface(surface)
-        activeSurface = surface
-        activeRoute = route
-        return true
+        return routeBinding.bindSurface(surface, route, ::logRouting)
     }
 
-    private fun clearActiveSurface() {
-        val previousSurface = activeSurface
-        if (previousSurface != null) {
-            playbackSession.clearSurface(previousSurface)
+    private fun clearActiveSurface(force: Boolean = false) {
+        routeBinding.clearActiveSurface(force = force, log = ::logRouting)
+    }
+
+    private fun maybeEnsurePausedFrameVisibility() {
+        if (!canProcessRouting("paused-frame-ensure")) {
+            pausedFrameContinuityJob?.cancel()
+            pausedFrameContinuityJob = null
+            return
         }
-        activeSurface = null
-        activeRoute = ActiveRoute.NONE
+        val sessionState = playbackSession.state.value
+        val shouldEnsure = routeState is DisplayRouteState.ExternalActive &&
+            routeBinding.activeRoute == ActiveRoute.EXTERNAL &&
+            routeBinding.activeSurface != null &&
+            sessionState.pausedFrameVisibleExpected &&
+            sessionState.awaitingFirstFrameAfterSurfaceBind
+        if (!shouldEnsure) {
+            pausedFrameContinuityJob?.cancel()
+            pausedFrameContinuityJob = null
+            return
+        }
+        if (pausedFrameContinuityJob?.isActive == true) {
+            return
+        }
+        pausedFrameContinuityJob = lifecycleScope.launch {
+            val deadlineMs = SystemClock.elapsedRealtime() + PAUSED_FRAME_VISIBILITY_TIMEOUT_MS
+            while (isActive && SystemClock.elapsedRealtime() < deadlineMs) {
+                val latestState = playbackSession.state.value
+                val stillShouldEnsure = routeState is DisplayRouteState.ExternalActive &&
+                    routeBinding.activeRoute == ActiveRoute.EXTERNAL &&
+                    routeBinding.activeSurface != null &&
+                    latestState.pausedFrameVisibleExpected &&
+                    latestState.awaitingFirstFrameAfterSurfaceBind
+                if (!stillShouldEnsure) {
+                    break
+                }
+                playbackSession.showPausedFrameIfExpected()
+                delay(PAUSED_FRAME_REFRESH_RETRY_MS)
+            }
+        }
+    }
+
+    private fun canProcessRouting(trigger: String): Boolean {
+        return routeBinding.canProcess(trigger, ::logRouting)
+    }
+
+    private fun logRouting(message: String) {
+        if (!PlaybackDiagnosticsConfig.isEnabled()) {
+            return
+        }
+        Log.i(PlaybackDiagnosticsConfig.ROUTING_LOG_TAG, message)
     }
 
     private fun renderRouteStatus() {
@@ -515,18 +636,44 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun updateDiagnostics() {
+        val diagnosticsEnabled = PlaybackDiagnosticsConfig.isEnabled()
+        binding.diagnosticsContainer.visibility = if (diagnosticsEnabled) View.VISIBLE else View.GONE
+        if (!diagnosticsEnabled) {
+            return
+        }
         val mode = displayController.currentPhysicalMode()
+        val playbackState = playbackSession.state.value
         val displaySummary = if (mode == null) {
             "internal-only [${routeState.asDebugLabel()}]"
         } else {
             "${mode.width}x${mode.height}@${mode.refreshRateHz} [${routeState.asDebugLabel()}]"
+        }
+        val playbackSummary = buildString {
+            append("expected=")
+            append(playbackState.expectedPlayWhenReady)
+            append(", actual=")
+            append(playbackState.playWhenReady)
+            append(", pause=")
+            append(playbackState.pauseReason)
+            append(", surface=")
+            append(playbackState.hasBoundSurface)
+            append(", pausedFrameExpected=")
+            append(playbackState.pausedFrameVisibleExpected)
+            append(", pausedFrameRefresh=")
+            append(playbackState.lastPausedFrameRefreshResult)
+            append("#")
+            append(playbackState.pausedFrameRefreshCount)
+            append(", firstFrameWaiting=")
+            append(playbackState.awaitingFirstFrameAfterSurfaceBind)
+            append(", firstFrameCount=")
+            append(playbackState.renderedFirstFrameCount)
         }
         diagnosticsOverlay.update(
             DiagnosticsState(
                 displaySummary = displaySummary,
                 trackingSummary = trackingSummary,
                 decoderSummary = decoderSummary,
-                droppedFrames = 0
+                playbackSummary = playbackSummary
             )
         )
     }
@@ -539,85 +686,13 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun recenterView() {
-        if (latestSessionState is XrSessionState.Streaming) {
-            runZeroView()
+        if (latestSessionState !is XrSessionState.Streaming) {
+            errors.show(getString(R.string.tracking_recenter_requires_streaming))
             return
         }
-        manualYawRad = 0f
-        manualPitchRad = 0f
-        val pose = buildManualPose()
-        latestPose = pose
-        applyPoseToRenderers(pose)
-        updateDiagnostics()
-    }
-
-    private fun handleLookTouch(event: MotionEvent): Boolean {
-        if (latestSessionState is XrSessionState.Streaming) {
-            return false
-        }
-        when (event.actionMasked) {
-            MotionEvent.ACTION_DOWN -> {
-                lastTouchX = event.x
-                lastTouchY = event.y
-                return true
-            }
-
-            MotionEvent.ACTION_MOVE -> {
-                val dx = event.x - lastTouchX
-                val dy = event.y - lastTouchY
-                lastTouchX = event.x
-                lastTouchY = event.y
-
-                manualYawRad = (manualYawRad - (dx * TOUCH_RADIANS_PER_PIXEL))
-                    .coerceIn(-MAX_MANUAL_YAW_RAD, MAX_MANUAL_YAW_RAD)
-                manualPitchRad = (manualPitchRad - (dy * TOUCH_RADIANS_PER_PIXEL))
-                    .coerceIn(-MAX_MANUAL_PITCH_RAD, MAX_MANUAL_PITCH_RAD)
-
-                val pose = buildManualPose()
-                latestPose = pose
-                applyPoseToRenderers(pose)
-                updateDiagnostics()
-                return true
-            }
-        }
-        return false
-    }
-
-    private fun buildManualPose(): PoseState {
-        val q = eulerToQuaternion(manualYawRad, manualPitchRad, 0f)
-        return PoseState(
-            yaw = manualYawRad,
-            pitch = manualPitchRad,
-            roll = 0f,
-            qx = q.first,
-            qy = q.second,
-            qz = q.third,
-            qw = q.fourth,
-            trackingAvailable = false
-        )
-    }
-
-    private fun eulerToQuaternion(yaw: Float, pitch: Float, roll: Float): Quaternion {
-        val cy = cos(yaw * 0.5f)
-        val sy = sin(yaw * 0.5f)
-        val cp = cos(pitch * 0.5f)
-        val sp = sin(pitch * 0.5f)
-        val cr = cos(roll * 0.5f)
-        val sr = sin(roll * 0.5f)
-        val qw = (cr * cp * cy) + (sr * sp * sy)
-        val qx = (sr * cp * cy) - (cr * sp * sy)
-        val qy = (cr * sp * cy) + (sr * cp * sy)
-        val qz = (cr * cp * sy) - (sr * sp * cy)
-        return Quaternion(qx, qy, qz, qw)
+        runZeroView()
     }
 }
-
-private data class Quaternion(
-    val first: Float,
-    val second: Float,
-    val third: Float,
-    val fourth: Float
-)
 
 private data class DisplayModeSignature(
     val displayId: Int,
@@ -636,7 +711,6 @@ private fun android.view.Display.toSignature(): DisplayModeSignature {
     )
 }
 
-private const val TOUCH_RADIANS_PER_PIXEL = 0.0035f
-private const val MAX_MANUAL_YAW_RAD = 3.1415927f
-private const val MAX_MANUAL_PITCH_RAD = 1.2f
 private const val EXTERNAL_RECONNECT_WATCHDOG_MS = 500L
+private const val PAUSED_FRAME_REFRESH_RETRY_MS = 250L
+private const val PAUSED_FRAME_VISIBILITY_TIMEOUT_MS = 2000L
