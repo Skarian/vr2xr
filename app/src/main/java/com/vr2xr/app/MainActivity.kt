@@ -47,7 +47,6 @@ class MainActivity : AppCompatActivity() {
 
     private val openDocument = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri == null) {
-            setRuntimeStatus(getString(R.string.status_file_picker_canceled))
             return@registerForActivityResult
         }
         resolver.resolveUri(this, uri, persistPermission = true)
@@ -75,7 +74,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         renderConnectionStatusUi(ConnectionStatusUi.CHECKING)
-        setRuntimeStatus(null)
+        setRuntimeStatus(getString(R.string.status_glasses_required))
         maybeHandleInboundIntent(intent)
         pendingLauncherResumeCheck = isLauncherIntent(intent)
     }
@@ -109,7 +108,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun handleResolvedSource(source: SourceDescriptor) {
         lifecycleScope.launch {
-            setRuntimeStatus(getString(R.string.status_preparing_source, source.normalized))
             val probe = trackingManager.probeConnection()
             renderConnectionStatus(probe)
             if (probe.connected) {
@@ -122,7 +120,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun launchPlayer(source: SourceDescriptor, resumeExisting: Boolean = false) {
-        setRuntimeStatus(getString(R.string.status_launching_source, source.normalized))
         val intent = Intent(this, PlayerActivity::class.java)
             .putExtra(PlayerActivity.EXTRA_SOURCE, source)
             .putExtra(PlayerActivity.EXTRA_RESUME_EXISTING, resumeExisting)

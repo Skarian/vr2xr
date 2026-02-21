@@ -8,9 +8,6 @@
     <string name="recenter">Recenter</string>
     <string name="run_calibration">Run Calibration</string>
     <string name="zero_view">Zero View</string>
-    <string name="status_file_picker_canceled">File picker canceled</string>
-    <string name="status_preparing_source">Preparing: %1$s</string>
-    <string name="status_launching_source">Launching: %1$s</string>
     <string name="status_glasses_required">Select VR SBS content after connecting XREAL glasses</string>
     <string name="dex_mode_warning">Samsung DeX is not supported. For best results, turn off DeX and enable screen mirroring so controls stay on phone and video plays in glasses.</string>
     <string name="xreal_status_icon_content_description">XREAL glasses status</string>
