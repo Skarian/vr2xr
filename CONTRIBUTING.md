@@ -1,0 +1,75 @@
+# Contributing to vr2xr
+
+This file is for development and maintenance details.
+
+## Tech Stack
+
+- Android app module: `:app`
+- Tracking library module: `:oneproxr` (from submodule `reference/one-pro-imu/oneproxr`)
+- Media stack: Media3/ExoPlayer
+- Rendering: OpenGL ES
+- Language/toolchain: Kotlin + AGP, JDK 17
+
+## Requirements
+
+- JDK 17
+- Android SDK (`compileSdk = 35`, `minSdk = 33`)
+- Git submodules initialized
+
+## Setup
+
+```bash
+git submodule update --init --recursive
+```
+
+## Build, Lint, Test
+
+```bash
+./gradlew :app:assembleDebug
+./gradlew :app:lintDebug
+./gradlew :app:testDebugUnitTest
+```
+
+## Install and Launch (Debug)
+
+```bash
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+adb shell am start -n com.vr2xr/.app.MainActivity
+```
+
+## Diagnostics
+
+Diagnostics are off by default.
+
+Enable diagnostics by either:
+
+- setting `PLAYBACK_DIAGNOSTICS_ENABLED=true` in `app/build.gradle.kts`, or
+- setting log property: `adb shell setprop log.tag.PlayerRouting DEBUG`
+
+When enabled, routing logs and on-screen diagnostics are both active.
+
+## Source Ingestion Paths
+
+- `ACTION_VIEW` with `http`, `https`, `content`, `file`
+- `ACTION_SEND` with `video/*` stream
+- `ACTION_SEND` with `text/plain` URL
+- `ACTION_SEND_MULTIPLE` with `video/*` (first stream used)
+
+## Repo Map
+
+- `app/src/main/java/com/vr2xr/app`: activities and app wiring
+- `app/src/main/java/com/vr2xr/player`: service, playback coordinator, playback engine
+- `app/src/main/java/com/vr2xr/display`: external display controller and route state machine
+- `app/src/main/java/com/vr2xr/tracking`: XREAL tracking session integration and pose mapping
+- `app/src/main/java/com/vr2xr/render`: SBS renderer
+- `app/src/main/java/com/vr2xr/source`: source resolver and intent ingestor
+- `app/src/main/java/com/vr2xr/diag`: diagnostics gate and overlay
+
+## CI APK Publishing
+
+Workflow: `.github/workflows/release-apk-latest.yml`
+
+- Trigger: push to `main`
+- Output: `app-debug.apk` renamed to `vr2xr.apk`
+- Release target: GitHub release tag `latest`
+- Mode: rolling update (replaces previous `vr2xr.apk` asset)
