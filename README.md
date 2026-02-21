@@ -8,7 +8,7 @@ It plays SBS/VR video in the glasses, keeps controls on the phone, and uses XREA
 
 - XREAL One or XREAL One Pro glasses
 - Android 13+ phone (`minSdk = 33`)
-- Samsung DeX off (use screen mirroring)
+- Not compatible with Samsung DeX off (use screen mirroring instead)
 
 ## App Guide
 
