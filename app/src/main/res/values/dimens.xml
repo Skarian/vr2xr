@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="launcher_screen_padding">24dp</dimen>
+    <dimen name="launcher_status_top_margin">28dp</dimen>
+    <dimen name="launcher_runtime_status_top_margin">14dp</dimen>
+    <dimen name="launcher_section_spacing">16dp</dimen>
+    <dimen name="launcher_input_corner_radius">14dp</dimen>
+    <dimen name="launcher_button_corner_radius">14dp</dimen>
+    <dimen name="launcher_help_button_size">48dp</dimen>
+    <dimen name="launcher_status_icon_size">40dp</dimen>
+    <dimen name="launcher_status_dot_size">12dp</dimen>
+    <dimen name="launcher_status_label_width">160dp</dimen>
+    <dimen name="launcher_status_text_size">18sp</dimen>
+    <dimen name="launcher_body_text_size">15sp</dimen>
+    <dimen name="launcher_footer_text_size">13sp</dimen>
+    <dimen name="launcher_footer_top_margin">20dp</dimen>
+    <dimen name="launcher_icon_nudge_distance">12dp</dimen>
+</resources>

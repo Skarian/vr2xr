@@ -1,58 +1,119 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/launcher_background"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:paddingStart="@dimen/launcher_screen_padding"
+    android:paddingTop="@dimen/launcher_screen_padding"
+    android:paddingEnd="@dimen/launcher_screen_padding"
+    android:paddingBottom="@dimen/launcher_screen_padding">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:id="@+id/xrealStatusRow"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="@dimen/launcher_status_top_margin"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:id="@+id/xrealStatusIcon"
+                android:layout_width="@dimen/launcher_status_icon_size"
+                android:layout_height="@dimen/launcher_status_icon_size"
+                android:contentDescription="@string/xreal_status_icon_content_description"
+                android:src="@drawable/ic_glasses_status" />
+
+            <View
+                android:id="@+id/xrealStatusDot"
+                android:layout_width="@dimen/launcher_status_dot_size"
+                android:layout_height="@dimen/launcher_status_dot_size"
+                android:layout_marginStart="12dp"
+                android:background="@drawable/bg_status_indicator_dot" />
+
+            <TextView
+                android:id="@+id/xrealStatusText"
+                style="@style/TextAppearance.Vr2xr.Launcher.Status"
+                android:layout_width="@dimen/launcher_status_label_width"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:ellipsize="end"
+                android:gravity="start|center_vertical"
+                android:maxLines="1"
+                android:text="@string/xreal_status_checking" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/statusText"
+            style="@style/TextAppearance.Vr2xr.Launcher.RuntimeStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/launcher_runtime_status_top_margin"
+            android:gravity="center_horizontal"
+            android:text=""
+            android:visibility="gone" />
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/urlInputLayout"
+            style="@style/Widget.Vr2xr.Launcher.Input"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/launcher_section_spacing"
+            android:hint="@string/hint_url"
+            app:boxBackgroundMode="outline">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/urlInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif"
+                android:inputType="textUri"
+                android:maxLines="1"
+                android:textColor="@color/launcher_text_primary"
+                android:textColorHint="@color/launcher_text_secondary" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/openUrlButton"
+            style="@style/Widget.Vr2xr.Launcher.PrimaryButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/launcher_section_spacing"
+            android:text="@string/open_url" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/openFileButton"
+            style="@style/Widget.Vr2xr.Launcher.PrimaryButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/launcher_section_spacing"
+            android:text="@string/open_file" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/requirementsHelpButton"
+            style="@style/Widget.Vr2xr.Launcher.HelpButton"
+            android:layout_width="@dimen/launcher_help_button_size"
+            android:layout_height="@dimen/launcher_help_button_size"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="@dimen/launcher_section_spacing"
+            android:contentDescription="@string/requirements_help_content_description"
+            android:text="@string/requirements_help" />
+    </LinearLayout>
 
     <TextView
-        android:id="@+id/xrealStatusText"
+        android:id="@+id/footerText"
+        style="@style/TextAppearance.Vr2xr.Launcher.Footer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:padding="10dp"
-        android:text="@string/xreal_status_checking"
-        android:textSize="16sp" />
-
-    <TextView
-        android:id="@+id/statusText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
-        android:text="@string/status_ready"
-        android:textSize="16sp" />
-
-    <TextView
-        android:id="@+id/dexWarningText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:background="@color/dex_warning_background"
-        android:padding="10dp"
-        android:text="@string/dex_mode_warning"
-        android:textColor="@color/dex_warning_text"
-        android:textSize="14sp" />
-
-    <EditText
-        android:id="@+id/urlInput"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:hint="@string/hint_url"
-        android:inputType="textUri"
-        android:maxLines="1" />
-
-    <Button
-        android:id="@+id/openUrlButton"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:text="@string/open_url" />
-
-    <Button
-        android:id="@+id/openFileButton"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:text="@string/open_file" />
-
+        android:layout_marginTop="@dimen/launcher_footer_top_margin"
+        android:gravity="center_horizontal"
+        android:text="@string/footer_designed_with" />
 </LinearLayout>
