@@ -3,12 +3,13 @@ package com.vr2xr.tracking
 import android.Manifest
 import android.content.Context
 import androidx.annotation.RequiresPermission
-import io.onepro.xr.OneProXrClient
-import io.onepro.xr.OneProXrEndpoint
-import io.onepro.xr.XrBiasState
-import io.onepro.xr.XrConnectionInfo
-import io.onepro.xr.XrPoseSnapshot
-import io.onepro.xr.XrSessionState
+import io.onexr.OneXrClient
+import io.onexr.OneXrEndpoint
+import io.onexr.XrBiasState
+import io.onexr.XrConnectionInfo
+import io.onexr.XrPoseDataMode
+import io.onexr.XrPoseSnapshot
+import io.onexr.XrSessionState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -20,16 +21,16 @@ import kotlinx.coroutines.launch
 import kotlin.math.cos
 import kotlin.math.sin
 
-data class OneProConnectionProbe(
+data class OneXrConnectionProbe(
     val connected: Boolean,
     val detail: String
 )
 
-class OneProTrackingSessionManager(
+class OneXrTrackingSessionManager(
     context: Context,
-    endpoint: OneProXrEndpoint = OneProXrEndpoint()
+    endpoint: OneXrEndpoint = OneXrEndpoint()
 ) {
-    private val client = OneProXrClient(context.applicationContext, endpoint)
+    private val client = OneXrClient(context.applicationContext, endpoint)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val _pose = MutableStateFlow<PoseState?>(null)
 
@@ -38,6 +39,7 @@ class OneProTrackingSessionManager(
     val biasState: StateFlow<XrBiasState> = client.biasState
 
     init {
+        client.setPoseDataMode(XrPoseDataMode.SMOOTH_IMU)
         scope.launch {
             client.poseData.collect { snapshot ->
                 _pose.value = snapshot?.toPoseState()
@@ -46,7 +48,7 @@ class OneProTrackingSessionManager(
     }
 
     @RequiresPermission(Manifest.permission.ACCESS_NETWORK_STATE)
-    suspend fun probeConnection(): OneProConnectionProbe {
+    suspend fun probeConnection(): OneXrConnectionProbe {
         return runCatching {
             val routing = client.describeRouting()
             val candidates = routing.networkCandidates
@@ -62,9 +64,9 @@ class OneProTrackingSessionManager(
             } else {
                 "not connected"
             }
-            OneProConnectionProbe(connected = connected, detail = detail)
+            OneXrConnectionProbe(connected = connected, detail = detail)
         }.getOrElse { error ->
-            OneProConnectionProbe(
+            OneXrConnectionProbe(
                 connected = false,
                 detail = "error ${error.javaClass.simpleName}:${error.message ?: "no-message"}"
             )

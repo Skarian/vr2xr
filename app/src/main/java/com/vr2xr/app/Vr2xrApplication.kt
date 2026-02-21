@@ -4,11 +4,11 @@ import android.app.Application
 import com.vr2xr.player.AppPlaybackSessionOwner
 import com.vr2xr.player.PlaybackCoordinator
 import com.vr2xr.player.PlaybackSessionOwner
-import com.vr2xr.tracking.OneProTrackingSessionManager
+import com.vr2xr.tracking.OneXrTrackingSessionManager
 
 class Vr2xrApplication : Application() {
-    val trackingSessionManager: OneProTrackingSessionManager by lazy {
-        OneProTrackingSessionManager(this)
+    val trackingSessionManager: OneXrTrackingSessionManager by lazy {
+        OneXrTrackingSessionManager(this)
     }
 
     val playbackCoordinator: PlaybackCoordinator by lazy {

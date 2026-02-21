@@ -62,4 +62,4 @@ app/src/main/jniLibs/arm64-v8a/*.so
 
 # Local reference material
 /reference/*
-!/reference/one-pro-imu
+!/reference/one-xr

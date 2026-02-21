@@ -1,3 +1,3 @@
-[submodule "reference/one-pro-imu"]
-	path = reference/one-pro-imu
-	url = https://github.com/Skarian/one-pro-imu
+[submodule "reference/one-xr"]
+	path = reference/one-xr
+	url = https://github.com/Skarian/one-xr

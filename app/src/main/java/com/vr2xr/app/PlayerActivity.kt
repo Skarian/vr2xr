@@ -34,10 +34,10 @@ import com.vr2xr.player.VrPlaybackService
 import com.vr2xr.render.RenderMode
 import com.vr2xr.render.VrSbsRenderer
 import com.vr2xr.source.SourceDescriptor
-import com.vr2xr.tracking.OneProTrackingSessionManager
+import com.vr2xr.tracking.OneXrTrackingSessionManager
 import com.vr2xr.tracking.PoseState
-import io.onepro.xr.XrBiasState
-import io.onepro.xr.XrSessionState
+import io.onexr.XrBiasState
+import io.onexr.XrSessionState
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
@@ -50,7 +50,7 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var diagnosticsOverlay: DiagnosticsOverlay
     private lateinit var displayController: ExternalDisplayController
     private lateinit var internalRenderer: VrSbsRenderer
-    private lateinit var trackingManager: OneProTrackingSessionManager
+    private lateinit var trackingManager: OneXrTrackingSessionManager
     private lateinit var routeBinding: PlayerRouteBinding
 
     private val routeStateMachine = DisplayRouteStateMachine()

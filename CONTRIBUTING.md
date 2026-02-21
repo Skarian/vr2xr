@@ -5,7 +5,7 @@ This file is for development and maintenance details.
 ## Tech Stack
 
 - Android app module: `:app`
-- Tracking library module: `:oneproxr` (from submodule `reference/one-pro-imu/oneproxr`)
+- Tracking library module: `:onexr` (from submodule `reference/one-xr/onexr`)
 - Media stack: Media3/ExoPlayer
 - Rendering: OpenGL ES
 - Language/toolchain: Kotlin + AGP, JDK 17

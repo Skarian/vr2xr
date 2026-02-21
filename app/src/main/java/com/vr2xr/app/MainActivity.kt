@@ -12,7 +12,7 @@ import com.vr2xr.databinding.ActivityMainBinding
 import com.vr2xr.source.IntentIngestor
 import com.vr2xr.source.SourceDescriptor
 import com.vr2xr.source.SourceResolver
-import com.vr2xr.tracking.OneProConnectionProbe
+import com.vr2xr.tracking.OneXrConnectionProbe
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -140,7 +140,7 @@ class MainActivity : AppCompatActivity() {
         return intent.categories?.contains(Intent.CATEGORY_LAUNCHER) == true
     }
 
-    private fun renderConnectionStatus(probe: OneProConnectionProbe) {
+    private fun renderConnectionStatus(probe: OneXrConnectionProbe) {
         if (probe.connected) {
             binding.xrealStatusText.text = getString(R.string.xreal_status_connected)
             binding.xrealStatusText.setTextColor(

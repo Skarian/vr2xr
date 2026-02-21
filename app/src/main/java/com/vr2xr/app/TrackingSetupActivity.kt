@@ -7,7 +7,7 @@ import androidx.appcompat.app.AppCompatActivity
 import com.vr2xr.R
 import com.vr2xr.databinding.ActivityTrackingSetupBinding
 import com.vr2xr.source.SourceDescriptor
-import io.onepro.xr.XrSessionState
+import io.onexr.XrSessionState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
