@@ -24,7 +24,8 @@
 
         <activity
             android:name=".app.PlayerActivity"
-            android:exported="true" />
+            android:exported="true"
+            android:screenOrientation="sensorPortrait" />
 
         <service
             android:name=".player.VrPlaybackService"
@@ -37,11 +38,13 @@
 
         <activity
             android:name=".app.TrackingSetupActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:screenOrientation="sensorPortrait" />
 
         <activity
             android:name=".app.MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:screenOrientation="sensorPortrait">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
