@@ -8,7 +8,7 @@
   <img src="assets/banner.png" alt="vr2xr" width="100%">
 </p>
 
-**vr2xr is an Android app for watching VR SBS video on XREAL One glasses. It focuses on simple, reliable playback with phone-based controls and IMU head tracking.**
+**vr2xr is an Android app for watching VR SBS video on XREAL One glasses. It supports VR180 SBS (half-equirectangular) content and focuses on simple, reliable playback with phone-based controls and IMU head tracking.**
 
 ---
 
@@ -21,6 +21,16 @@
   &nbsp;
   <img src="./assets/screenshots/framed/04-player-framed.png" alt="vr2xr player controls" width="22%">
 </p>
+
+## Features
+
+- **XREAL One Compatible**: Live head tracking, connection status, and factory bias correction
+- **Flexible Source Input**: Open local files, `http(s)` video URLs, or share media links/files from other Android apps
+- **Guided Setup**: Flat-surface calibration first, then SBS readiness before entering the VR player
+- **In-Player Tracking Controls**: Recalibrate anytime, tune IMU sensitivity, and toggle IMU tracking on or off
+- **Phone Playback Controls**: On-phone controls for play/pause, 15-second seek, and timeline scrubbing
+- **Touchpad View Adjustment**: Drag to adjust view orientation with continuous edge auto-drag for smooth movement
+- **Durable Playback Sessions**: Handles output interruptions and resumes cleanly into the active playback session
 
 ## Requirements
 
