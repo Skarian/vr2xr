@@ -8,7 +8,7 @@
   <img src="assets/banner.png" alt="vr2xr" width="100%">
 </p>
 
-**vr2xr is an Android app for watching VR SBS video on XREAL One glasses. It supports VR180 SBS (half-equirectangular) content and focuses on simple, reliable playback with phone-based controls and IMU head tracking.**
+**vr2xr is an Android app for watching VR SBS video on XREAL One glasses. It supports VR180 SBS content and focuses on simple, reliable playback with phone-based controls and IMU head tracking.**
 
 ---
 
