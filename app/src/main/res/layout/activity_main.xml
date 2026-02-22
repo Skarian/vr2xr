@@ -67,7 +67,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/launcher_section_spacing"
-            android:hint="@string/hint_url"
+            app:hintEnabled="false"
             app:boxBackgroundMode="outline">
 
             <com.google.android.material.textfield.TextInputEditText
@@ -75,6 +75,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:fontFamily="sans-serif"
+                android:hint="@string/hint_url"
                 android:inputType="textUri"
                 android:maxLines="1"
                 android:textColor="@color/launcher_text_primary"
