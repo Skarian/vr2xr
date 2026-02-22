@@ -26,6 +26,7 @@
         <activity
             android:name=".app.PlayerActivity"
             android:exported="true"
+            android:launchMode="singleTop"
             android:screenOrientation="sensorPortrait" />
 
         <service

@@ -43,7 +43,7 @@ class MainActivity : AppCompatActivity() {
     private val trackingManager by lazy { (application as Vr2xrApplication).trackingSessionManager }
     private val playbackSession by lazy { (application as Vr2xrApplication).playbackSessionOwner }
     private var connectionProbeJob: Job? = null
-    private var pendingLauncherResumeCheck = false
+    private var pendingResumeRequest = false
     private var currentConnectionStatus = ConnectionStatusUi.CHECKING
 
     private val openDocument = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
@@ -79,14 +79,15 @@ class MainActivity : AppCompatActivity() {
 
         renderConnectionStatusUi(ConnectionStatusUi.CHECKING)
         setRuntimeStatus(getString(R.string.status_glasses_required))
+        pendingResumeRequest = isExplicitResumeRequest(intent)
         maybeHandleInboundIntent(intent)
-        pendingLauncherResumeCheck = isLauncherIntent(intent)
+        maybeResumeActivePlaybackSession(consumeOnMiss = false)
     }
 
     override fun onStart() {
         super.onStart()
         startConnectionProbeLoop()
-        maybeResumeActivePlaybackSession()
+        maybeResumeActivePlaybackSession(consumeOnMiss = true)
     }
 
     override fun onStop() {
@@ -98,8 +99,9 @@ class MainActivity : AppCompatActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        pendingResumeRequest = isExplicitResumeRequest(intent)
         maybeHandleInboundIntent(intent)
-        pendingLauncherResumeCheck = isLauncherIntent(intent)
+        maybeResumeActivePlaybackSession(consumeOnMiss = true)
     }
 
     private fun maybeHandleInboundIntent(intent: Intent?) {
@@ -127,6 +129,9 @@ class MainActivity : AppCompatActivity() {
         val intent = Intent(this, PlayerActivity::class.java)
             .putExtra(PlayerActivity.EXTRA_SOURCE, source)
             .putExtra(PlayerActivity.EXTRA_RESUME_EXISTING, resumeExisting)
+        if (resumeExisting) {
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        }
         startActivity(intent)
     }
 
@@ -147,21 +152,33 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun maybeResumeActivePlaybackSession() {
-        if (!pendingLauncherResumeCheck) {
+    private fun maybeResumeActivePlaybackSession(consumeOnMiss: Boolean) {
+        if (!pendingResumeRequest) {
             return
         }
-        pendingLauncherResumeCheck = false
-        val activeSource = playbackSession.state.value.source ?: return
+        val activeSource = playbackSession.state.value.source
+        if (activeSource == null) {
+            if (consumeOnMiss) {
+                pendingResumeRequest = false
+            }
+            return
+        }
+        pendingResumeRequest = false
         launchPlayer(activeSource, resumeExisting = true)
         finish()
     }
 
-    private fun isLauncherIntent(intent: Intent?): Boolean {
-        if (intent == null || intent.action != Intent.ACTION_MAIN) {
+    private fun isExplicitResumeRequest(intent: Intent?): Boolean {
+        if (intent == null) {
             return false
         }
-        return intent.categories?.contains(Intent.CATEGORY_LAUNCHER) == true
+        return PlaybackResumeContract.isResumeRequest(
+            action = intent.action,
+            resumeRequested = intent.getBooleanExtra(
+                PlaybackResumeContract.EXTRA_RESUME_REQUESTED,
+                false
+            )
+        )
     }
 
     private fun setRuntimeStatus(message: String?) {

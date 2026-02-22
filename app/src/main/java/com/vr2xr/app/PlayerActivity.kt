@@ -1,6 +1,7 @@
 package com.vr2xr.app
 
 import android.content.ComponentName
+import android.content.Intent
 import android.opengl.GLSurfaceView
 import android.os.Build
 import android.os.Bundle
@@ -103,6 +104,10 @@ class PlayerActivity : AppCompatActivity() {
     private var lastTouchpadY = 0f
     private var touchpadNormalizedX = 0f
     private var touchpadNormalizedY = 0f
+    private var launchRequest = PlayerLaunchRequest(
+        source = null,
+        resumeExisting = false
+    )
 
     private val mediaControllerListener = object : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -123,18 +128,6 @@ class PlayerActivity : AppCompatActivity() {
                 refreshTimelineUi()
             }
         }
-    }
-
-    private val source: SourceDescriptor? by lazy {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            intent.getParcelableExtra(EXTRA_SOURCE, SourceDescriptor::class.java)
-        } else {
-            @Suppress("DEPRECATION")
-            intent.getParcelableExtra(EXTRA_SOURCE)
-        }
-    }
-    private val resumeExisting: Boolean by lazy {
-        intent.getBooleanExtra(EXTRA_RESUME_EXISTING, false)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -166,7 +159,8 @@ class PlayerActivity : AppCompatActivity() {
         binding.diagnosticsContainer.addView(diagnosticsOverlay)
         binding.diagnosticsContainer.visibility = View.GONE
 
-        val resolvedSource = source
+        launchRequest = parseLaunchRequest(intent)
+        val resolvedSource = launchRequest.source
         if (resolvedSource == null) {
             finish()
             return
@@ -196,8 +190,12 @@ class PlayerActivity : AppCompatActivity() {
         connectMediaController()
 
         val currentSessionSource = playbackSession.state.value.source
-        val shouldForceReset = savedInstanceState == null &&
-            !(resumeExisting && currentSessionSource?.normalized == resolvedSource.normalized)
+        val shouldForceReset = shouldForceSourceReset(
+            hasSavedInstanceState = savedInstanceState != null,
+            resumeExisting = launchRequest.resumeExisting,
+            currentSourceNormalized = currentSessionSource?.normalized,
+            requestedSourceNormalized = resolvedSource.normalized
+        )
         playbackSession.attachSource(resolvedSource, forceReset = shouldForceReset)
         updateTrackingSummary()
         updateTrackingControls()
@@ -269,9 +267,43 @@ class PlayerActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        launchRequest = parseLaunchRequest(intent)
+        val resolvedSource = launchRequest.source ?: return
+        if (!::playbackSession.isInitialized) {
+            return
+        }
+        val currentSessionSource = playbackSession.state.value.source
+        val shouldForceReset = shouldForceSourceReset(
+            hasSavedInstanceState = false,
+            resumeExisting = launchRequest.resumeExisting,
+            currentSourceNormalized = currentSessionSource?.normalized,
+            requestedSourceNormalized = resolvedSource.normalized
+        )
+        playbackSession.attachSource(resolvedSource, forceReset = shouldForceReset)
+    }
+
     companion object {
         const val EXTRA_SOURCE = "extra_source"
         const val EXTRA_RESUME_EXISTING = "extra_resume_existing"
+    }
+
+    private fun parseLaunchRequest(intent: Intent?): PlayerLaunchRequest {
+        if (intent == null) {
+            return PlayerLaunchRequest(source = null, resumeExisting = false)
+        }
+        val source = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent.getParcelableExtra(EXTRA_SOURCE, SourceDescriptor::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            intent.getParcelableExtra(EXTRA_SOURCE)
+        }
+        return PlayerLaunchRequest(
+            source = source,
+            resumeExisting = intent.getBooleanExtra(EXTRA_RESUME_EXISTING, false)
+        )
     }
 
     private fun connectMediaController() {
@@ -279,7 +311,12 @@ class PlayerActivity : AppCompatActivity() {
             return
         }
         val token = SessionToken(this, ComponentName(this, VrPlaybackService::class.java))
-        val future = MediaController.Builder(this, token).buildAsync()
+        val connectionHints = Bundle().apply {
+            putBoolean(VrPlaybackService.CONTROLLER_HINT_ALLOW_APP_PLAYBACK, true)
+        }
+        val future = MediaController.Builder(this, token)
+            .setConnectionHints(connectionHints)
+            .buildAsync()
         mediaControllerFuture = future
         future.addListener(
             {
@@ -1110,6 +1147,21 @@ private fun android.view.Display.toSignature(): DisplayModeSignature {
         width = mode.physicalWidth,
         height = mode.physicalHeight
     )
+}
+
+internal data class PlayerLaunchRequest(
+    val source: SourceDescriptor?,
+    val resumeExisting: Boolean
+)
+
+internal fun shouldForceSourceReset(
+    hasSavedInstanceState: Boolean,
+    resumeExisting: Boolean,
+    currentSourceNormalized: String?,
+    requestedSourceNormalized: String
+): Boolean {
+    return !hasSavedInstanceState &&
+        !(resumeExisting && currentSourceNormalized == requestedSourceNormalized)
 }
 
 private const val EXTERNAL_RECONNECT_WATCHDOG_MS = 500L
