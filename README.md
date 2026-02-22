@@ -32,6 +32,12 @@
 - **Touchpad View Adjustment**: Drag to adjust view orientation with continuous edge auto-drag for smooth movement
 - **Durable Playback Sessions**: Handles output interruptions and resumes cleanly into the active playback session
 
+## Player Controls
+
+<p align="center">
+  <img src="assets/controls-explained.png" alt="vr2xr player controls explained" width="75%">
+</p>
+
 ## Requirements
 
 - XREAL One or XREAL One Pro glasses
