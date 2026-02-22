@@ -46,4 +46,4 @@ jobs:
           ./tools/release/generate_play_notes.sh "${GITHUB_REF_NAME}" "app/src/main/play/release-notes/en-US/default.txt"
 
       - name: Publish release bundle to Play internal track
-        run: ./gradlew :app:publishReleaseBundle --stacktrace
+        run: ./gradlew :app:publishReleaseBundle --release-status draft --stacktrace

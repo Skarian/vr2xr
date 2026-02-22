@@ -9,6 +9,8 @@ For each pushed tag matching `v*.*.*`:
 - `.github/workflows/release-apk-tag.yml` publishes `vr2xr.apk` to GitHub Releases
 - `.github/workflows/release-play-tag.yml` uploads a signed App Bundle to Play `internal` track
 
+Current behavior while the app is in Play draft state: Play uploads are created with release status `draft` by CI.
+
 ## One-Time Setup
 
 ### 1) Play Console readiness
@@ -176,6 +178,7 @@ The script builds notes from commit subjects between the previous semantic tag a
 - Missing signing env vars: workflow fails in Gradle configuration. Verify secrets and keystore decode step
 - Tag format rejected: tag must match `vMAJOR.MINOR.PATCH`
 - WIF auth failure: verify `id-token: write`, provider string, repository principal binding, and API enablement
+- Draft app rejection (`Only releases with status draft may be created on draft app`): keep CI on draft release status until app exits draft state in Play Console
 - `publishReleaseBundle` denied: verify service account Play app permissions and Play Console project linkage
 - Version code already used: create a new higher semantic tag and republish
 
