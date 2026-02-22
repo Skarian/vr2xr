@@ -14,6 +14,12 @@
     <dimen name="launcher_body_text_size">15sp</dimen>
     <dimen name="launcher_footer_text_size">13sp</dimen>
     <dimen name="launcher_footer_top_margin">20dp</dimen>
+    <dimen name="launcher_buy_me_coffee_width">204dp</dimen>
+    <dimen name="launcher_buy_me_coffee_height">57dp</dimen>
+    <dimen name="launcher_buy_me_coffee_corner_radius">12dp</dimen>
+    <dimen name="launcher_buy_me_coffee_text_top_margin">20dp</dimen>
+    <dimen name="launcher_buy_me_coffee_button_top_margin">14dp</dimen>
+    <dimen name="launcher_buy_me_coffee_bottom_margin">16dp</dimen>
     <dimen name="launcher_icon_nudge_distance">12dp</dimen>
     <dimen name="setup_glasses_icon_size">168dp</dimen>
     <dimen name="setup_glasses_icon_top_margin">40dp</dimen>

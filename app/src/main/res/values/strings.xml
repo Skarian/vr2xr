@@ -19,6 +19,10 @@
     <string name="requirements_modal_message">- XREAL One or XREAL One Pro glasses are required\n- Android 13 or newer is required\n- Samsung DeX desktop mode is not supported. Turn off DeX and use screen mirroring</string>
     <string name="requirements_modal_action">Got it</string>
     <string name="toast_glasses_required">Connect XREAL glasses, then select VR SBS content</string>
+    <string name="buy_me_coffee_support_text">Enjoying vr2xr?</string>
+    <string name="footer_buy_me_a_coffee">Buy Me a Coffee</string>
+    <string name="buy_me_coffee_url">https://buymeacoffee.com/skarian</string>
+    <string name="error_open_buy_me_coffee">Unable to open Buy Me a Coffee link</string>
     <string name="footer_designed_with">Designed with ❤️ by Neil Skaria</string>
     <string name="tracking_setup_step1">Place your glasses on a flat surface and tap Run Calibration</string>
     <string name="tracking_setup_idle">Tap Run Calibration to begin</string>

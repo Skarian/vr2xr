@@ -110,11 +110,24 @@
     </LinearLayout>
 
     <TextView
-        android:id="@+id/footerText"
         style="@style/TextAppearance.Vr2xr.Launcher.Footer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/launcher_footer_top_margin"
+        android:layout_marginTop="@dimen/launcher_buy_me_coffee_text_top_margin"
         android:gravity="center_horizontal"
-        android:text="@string/footer_designed_with" />
+        android:text="@string/buy_me_coffee_support_text" />
+
+    <androidx.appcompat.widget.AppCompatImageButton
+        android:id="@+id/buyMeCoffeeButton"
+        android:layout_width="@dimen/launcher_buy_me_coffee_width"
+        android:layout_height="@dimen/launcher_buy_me_coffee_height"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginBottom="@dimen/launcher_buy_me_coffee_bottom_margin"
+        android:layout_marginTop="@dimen/launcher_buy_me_coffee_button_top_margin"
+        android:adjustViewBounds="true"
+        android:background="@drawable/bg_buy_me_coffee_touch_feedback"
+        android:contentDescription="@string/footer_buy_me_a_coffee"
+        android:padding="0dp"
+        android:scaleType="fitCenter"
+        app:srcCompat="@drawable/buy_me_coffee_orange" />
 </LinearLayout>

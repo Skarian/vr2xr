@@ -2,6 +2,7 @@ package com.vr2xr.app
 
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.res.ColorStateList
 import android.net.Uri
@@ -59,6 +60,9 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        binding.buyMeCoffeeButton.setOnClickListener {
+            openBuyMeCoffee()
+        }
         binding.openFileButton.setOnClickListener {
             openDocument.launch(arrayOf("video/*"))
         }
@@ -168,6 +172,17 @@ class MainActivity : AppCompatActivity() {
         }
         binding.statusText.text = message
         binding.statusText.visibility = View.VISIBLE
+    }
+
+    private fun openBuyMeCoffee() {
+        val linkIntent = Intent(Intent.ACTION_VIEW, Uri.parse(getString(R.string.buy_me_coffee_url))).apply {
+            addCategory(Intent.CATEGORY_BROWSABLE)
+        }
+        try {
+            startActivity(linkIntent)
+        } catch (_: ActivityNotFoundException) {
+            errors.show(getString(R.string.error_open_buy_me_coffee))
+        }
     }
 
     private fun showRequirementsModal() {

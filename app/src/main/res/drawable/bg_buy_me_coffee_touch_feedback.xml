@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="@color/catppuccin_mocha_blue">
+    <item android:id="@android:id/mask">
+        <shape android:shape="rectangle">
+            <corners android:radius="@dimen/launcher_buy_me_coffee_corner_radius" />
+            <solid android:color="@android:color/white" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <corners android:radius="@dimen/launcher_buy_me_coffee_corner_radius" />
+            <solid android:color="@android:color/transparent" />
+        </shape>
+    </item>
+</ripple>
