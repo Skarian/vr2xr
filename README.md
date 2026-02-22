@@ -61,7 +61,8 @@ Phone-only playback is intentionally not supported. The app also does not change
 
 ## Install
 
-Debug APKs are published to the rolling `latest` GitHub release as `vr2xr.apk`.
+Debug APKs are published to versioned GitHub Releases when semantic tags (`v*.*.*`) are pushed.
+Download `vr2xr.apk` from the release tag you want to install.
 
 ## For Developers
 
