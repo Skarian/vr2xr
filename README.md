@@ -35,7 +35,7 @@
 3. In setup step 1, place the glasses on a flat surface and run calibration.
 4. In setup step 2, put the glasses back on and switch `Display > 3D Mode` to `Full SBS`.
 5. Tap `Continue to VR Player` (the app applies Zero View automatically).
-6. Start playback and use phone controls for settings popups, play/pause, 15-second seek buttons, timeline drag/tap seeking, and recenter.
+6. Start playback and use phone controls for settings popups, play/pause, 15-second seek buttons, timeline drag/tap seeking, recenter, IMU sensitivity/tracking controls, and continuous touchpad view drag.
 
 Samsung DeX warning: DeX desktop mode is not supported for playback. If DeX is on, turn it off and use screen mirroring.
 

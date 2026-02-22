@@ -20,9 +20,8 @@
     <string name="player_timeline_content_description">Playback timeline</string>
     <string name="player_touchpad_content_description">Manual touch tracking area</string>
     <string name="player_settings_close">Close</string>
-    <string name="settings_coming_soon">Coming Soon</string>
     <string name="imu_sensitivity_title">IMU Sensitivity</string>
-    <string name="imu_sensitivity_default_value">0.5</string>
+    <string name="imu_sensitivity_default_value">0.9</string>
     <string name="imu_sensitivity_value_format">%1$.1f</string>
     <string name="imu_tracking_toggle_title">Enable IMU Tracking</string>
     <string name="projection_half_equirectangular_vr180">Half Equirectangular (VR180)</string>

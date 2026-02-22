@@ -57,7 +57,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/player_timeline_time_spacing"
             android:contentDescription="@string/imu_sensitivity_title"
-            android:value="0.5"
+            android:value="0.9"
             android:valueFrom="0.1"
             android:valueTo="0.9"
             app:haloColor="@color/player_controls_timeline_halo"

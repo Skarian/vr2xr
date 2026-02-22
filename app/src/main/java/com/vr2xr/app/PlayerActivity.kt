@@ -10,7 +10,6 @@ import android.view.MotionEvent
 import android.view.Surface
 import android.view.View
 import android.widget.TextView
-import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -45,8 +44,11 @@ import com.vr2xr.player.VrPlaybackService
 import com.vr2xr.render.RenderMode
 import com.vr2xr.render.VrSbsRenderer
 import com.vr2xr.source.SourceDescriptor
+import com.vr2xr.tracking.computeTouchpadAutoDragDelta
 import com.vr2xr.tracking.OneXrTrackingSessionManager
 import com.vr2xr.tracking.PoseState
+import com.vr2xr.tracking.RuntimePoseController
+import com.vr2xr.tracking.TOUCHPAD_DRAG_FULL_TRAVEL_RADIANS
 import io.onexr.XrBiasState
 import io.onexr.XrSessionState
 import kotlinx.coroutines.Job
@@ -75,6 +77,7 @@ class PlayerActivity : AppCompatActivity() {
     private var externalPresentationModeSignature: DisplayModeSignature? = null
     private var externalPresentationToken: Long = 0L
     private var latestPose: PoseState = PoseState()
+    private val runtimePoseController = RuntimePoseController(initialSensitivity = DEFAULT_IMU_SENSITIVITY)
     private var trackingSummary: String = ""
 
     private val renderMode = RenderMode()
@@ -92,11 +95,14 @@ class PlayerActivity : AppCompatActivity() {
     private var mediaControllerFuture: ListenableFuture<MediaController>? = null
     private var mediaController: MediaController? = null
     private var playbackProgressJob: Job? = null
+    private var touchpadAutoDragJob: Job? = null
     private var isTimelineScrubbing = false
     private var pendingTimelinePositionMs = 0L
     private var selectedProjectionIndex = 0
-    private var imuSensitivityUiValue = DEFAULT_IMU_SENSITIVITY
-    private var imuTrackingEnabledUi = true
+    private var lastTouchpadX = 0f
+    private var lastTouchpadY = 0f
+    private var touchpadNormalizedX = 0f
+    private var touchpadNormalizedY = 0f
 
     private val mediaControllerListener = object : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -184,7 +190,7 @@ class PlayerActivity : AppCompatActivity() {
         binding.videoSurface.setRenderer(internalRenderer)
         binding.videoSurface.renderMode = GLSurfaceView.RENDERMODE_CONTINUOUSLY
         internalRenderer.setRenderMode(renderMode)
-        internalRenderer.setPose(latestPose)
+        applyRuntimePose(runtimePoseController.currentPose())
 
         setupControls()
         connectMediaController()
@@ -225,6 +231,7 @@ class PlayerActivity : AppCompatActivity() {
     override fun onStop() {
         routeBinding.onTeardownBegin()
         displayController.stop()
+        stopTouchpadAutoDrag()
         stopPlaybackProgressUpdates()
         externalReconnectWatchdogJob?.cancel()
         externalReconnectWatchdogJob = null
@@ -252,6 +259,7 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         routeBinding.onTeardownBegin()
+        stopTouchpadAutoDrag()
         clearActiveSurface(force = true)
         dismissExternalPresentation()
         releaseMediaController()
@@ -347,17 +355,38 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun setupTouchpad() {
-        binding.touchpadArea.post { resetTouchpadIndicator(animate = false) }
+        binding.touchpadArea.post {
+            touchpadNormalizedX = 0f
+            touchpadNormalizedY = 0f
+            resetTouchpadIndicator(animate = false)
+        }
         binding.touchpadArea.setOnTouchListener { _, event ->
             when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN,
+                MotionEvent.ACTION_DOWN -> {
+                    lastTouchpadX = event.x
+                    lastTouchpadY = event.y
+                    moveTouchpadIndicator(event.x, event.y)
+                    startTouchpadAutoDrag()
+                    true
+                }
+
                 MotionEvent.ACTION_MOVE -> {
+                    applyTouchpadDragDelta(
+                        deltaX = event.x - lastTouchpadX,
+                        deltaY = event.y - lastTouchpadY
+                    )
+                    lastTouchpadX = event.x
+                    lastTouchpadY = event.y
                     moveTouchpadIndicator(event.x, event.y)
                     true
                 }
 
                 MotionEvent.ACTION_UP,
                 MotionEvent.ACTION_CANCEL -> {
+                    stopTouchpadAutoDrag()
+                    applyRuntimePose(runtimePoseController.commitTouchpadBias())
+                    touchpadNormalizedX = 0f
+                    touchpadNormalizedY = 0f
                     resetTouchpadIndicator(animate = true)
                     true
                 }
@@ -378,6 +407,57 @@ class PlayerActivity : AppCompatActivity() {
         indicator.translationX = centeredX
         indicator.translationY = centeredY
         indicator.alpha = 1f
+        touchpadNormalizedX = if (maxOffsetX > 0f) centeredX / maxOffsetX else 0f
+        touchpadNormalizedY = if (maxOffsetY > 0f) centeredY / maxOffsetY else 0f
+    }
+
+    private fun applyTouchpadDragDelta(deltaX: Float, deltaY: Float) {
+        val area = binding.touchpadArea
+        val indicator = binding.touchpadIndicator
+        val maxOffsetX = ((area.width - indicator.width) / 2f).coerceAtLeast(0f)
+        val maxOffsetY = ((area.height - indicator.height) / 2f).coerceAtLeast(0f)
+        if (maxOffsetX <= 0f || maxOffsetY <= 0f) {
+            return
+        }
+        val yawDelta = (deltaX / maxOffsetX) * TOUCHPAD_DRAG_FULL_TRAVEL_RADIANS
+        val pitchDelta = -(deltaY / maxOffsetY) * TOUCHPAD_DRAG_FULL_TRAVEL_RADIANS
+        applyRuntimePose(runtimePoseController.applyTouchpadBiasDelta(yawDelta, pitchDelta))
+    }
+
+    private fun startTouchpadAutoDrag() {
+        if (touchpadAutoDragJob?.isActive == true) {
+            return
+        }
+        touchpadAutoDragJob = lifecycleScope.launch {
+            while (isActive) {
+                applyTouchpadAutoDragStep()
+                delay(TOUCHPAD_AUTO_DRAG_INTERVAL_MS)
+            }
+        }
+    }
+
+    private fun stopTouchpadAutoDrag() {
+        touchpadAutoDragJob?.cancel()
+        touchpadAutoDragJob = null
+    }
+
+    private fun applyTouchpadAutoDragStep() {
+        val delta = computeTouchpadAutoDragDelta(
+            normalizedX = touchpadNormalizedX,
+            normalizedY = touchpadNormalizedY,
+            intervalMs = TOUCHPAD_AUTO_DRAG_INTERVAL_MS,
+            edgeThreshold = TOUCHPAD_AUTO_DRAG_EDGE_THRESHOLD,
+            radiansPerSecond = TOUCHPAD_AUTO_DRAG_RADIANS_PER_SECOND
+        )
+        if (delta.yawDeltaRad == 0f && delta.pitchDeltaRad == 0f) {
+            return
+        }
+        applyRuntimePose(
+            runtimePoseController.applyTouchpadBiasDelta(
+                yawDeltaRad = delta.yawDeltaRad,
+                pitchDeltaRad = delta.pitchDeltaRad
+            )
+        )
     }
 
     private fun resetTouchpadIndicator(animate: Boolean) {
@@ -504,17 +584,14 @@ class PlayerActivity : AppCompatActivity() {
             .setPositiveButton(R.string.player_settings_close, null)
             .create()
 
-        bindComingSoonSlider(
+        bindImuSensitivitySlider(
             slider = dialogBinding.imuSensitivitySlider,
             valueLabel = dialogBinding.imuSensitivityValueText
         )
-        bindComingSoonToggle(
+        bindImuTrackingToggle(
             toggle = dialogBinding.imuTrackingSwitch,
-            row = dialogBinding.imuTrackingRow,
-            initialValue = imuTrackingEnabledUi
-        ) { isEnabled ->
-            imuTrackingEnabledUi = isEnabled
-        }
+            row = dialogBinding.imuTrackingRow
+        )
 
         dialogBinding.runCalibrationButton.setOnClickListener {
             runCalibration()
@@ -525,41 +602,29 @@ class PlayerActivity : AppCompatActivity() {
         applyPlayerSettingsDialogStyle(dialog)
     }
 
-    private fun bindComingSoonSlider(slider: Slider, valueLabel: TextView) {
+    private fun bindImuSensitivitySlider(slider: Slider, valueLabel: TextView) {
         slider.clearOnChangeListeners()
         slider.clearOnSliderTouchListeners()
-        slider.value = imuSensitivityUiValue
-        valueLabel.text = formatImuSensitivityValue(imuSensitivityUiValue)
+        slider.value = runtimePoseController.imuSensitivity()
+        valueLabel.text = formatImuSensitivityValue(runtimePoseController.imuSensitivity())
         slider.addOnChangeListener { _, value, fromUser ->
+            valueLabel.text = formatImuSensitivityValue(value)
             if (!fromUser) {
                 return@addOnChangeListener
             }
-            imuSensitivityUiValue = value
-            valueLabel.text = formatImuSensitivityValue(value)
+            applyRuntimePose(runtimePoseController.setImuSensitivity(value))
         }
-        slider.addOnSliderTouchListener(
-            object : Slider.OnSliderTouchListener {
-                override fun onStartTrackingTouch(slider: Slider) = Unit
-
-                override fun onStopTrackingTouch(slider: Slider) {
-                    onDeferredSettingsInteraction()
-                }
-            }
-        )
     }
 
-    private fun bindComingSoonToggle(
+    private fun bindImuTrackingToggle(
         toggle: SwitchMaterial,
-        row: View,
-        initialValue: Boolean,
-        onValueChanged: (Boolean) -> Unit
+        row: View
     ) {
         toggle.setOnCheckedChangeListener(null)
-        toggle.isChecked = initialValue
+        toggle.isChecked = runtimePoseController.isImuTrackingEnabled()
         row.setOnClickListener { toggle.toggle() }
         toggle.setOnCheckedChangeListener { _, isChecked ->
-            onValueChanged(isChecked)
-            onDeferredSettingsInteraction()
+            applyRuntimePose(runtimePoseController.setImuTrackingEnabled(isChecked))
         }
     }
 
@@ -597,14 +662,6 @@ class PlayerActivity : AppCompatActivity() {
         return getString(R.string.imu_sensitivity_value_format, value)
     }
 
-    private fun onDeferredSettingsInteraction() {
-        showComingSoonSettingToast()
-    }
-
-    private fun showComingSoonSettingToast() {
-        Toast.makeText(this, R.string.settings_coming_soon, Toast.LENGTH_SHORT).show()
-    }
-
     private fun formatPlaybackTime(positionMs: Long): String {
         val totalSeconds = (positionMs.coerceAtLeast(0L) / 1000L).toInt()
         val hours = totalSeconds / 3600
@@ -640,8 +697,7 @@ class PlayerActivity : AppCompatActivity() {
                 if (pose == null || !pose.trackingAvailable) {
                     return@collect
                 }
-                latestPose = pose
-                applyPoseToRenderers(pose)
+                applyRuntimePose(runtimePoseController.onTrackingPoseUpdated(pose))
             }
         }
     }
@@ -1023,11 +1079,18 @@ class PlayerActivity : AppCompatActivity() {
         externalPresentation?.setPose(pose)
     }
 
+    private fun applyRuntimePose(pose: PoseState) {
+        latestPose = pose
+        applyPoseToRenderers(pose)
+    }
+
     private fun runRecenter() {
         if (latestSessionState !is XrSessionState.Streaming) {
             errors.show(getString(R.string.tracking_recenter_requires_streaming))
             return
         }
+        applyRuntimePose(runtimePoseController.resetTouchpadBias())
+        resetTouchpadIndicator(animate = false)
         runZeroView()
     }
 }
@@ -1054,4 +1117,7 @@ private const val PAUSED_FRAME_REFRESH_RETRY_MS = 250L
 private const val PAUSED_FRAME_VISIBILITY_TIMEOUT_MS = 2000L
 private const val SEEK_INTERVAL_MS = 15_000L
 private const val PLAYBACK_PROGRESS_UPDATE_MS = 300L
-private const val DEFAULT_IMU_SENSITIVITY = 0.5f
+private const val DEFAULT_IMU_SENSITIVITY = 0.9f
+private const val TOUCHPAD_AUTO_DRAG_INTERVAL_MS = 16L
+private const val TOUCHPAD_AUTO_DRAG_EDGE_THRESHOLD = 0.9f
+private const val TOUCHPAD_AUTO_DRAG_RADIANS_PER_SECOND = 0.24f
