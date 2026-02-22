@@ -4,11 +4,23 @@
   </a>
 </p>
 
-# vr2xr
+<p align="center">
+  <img src="assets/banner.png" alt="vr2xr" width="100%">
+</p>
 
-vr2xr is a VR video player for **XREAL One** glasses on Android.
+**vr2xr is an Android app for watching VR SBS video on XREAL One glasses. It focuses on simple, reliable playback with phone-based controls and IMU head tracking.**
 
-It plays SBS/VR video in the glasses, keeps controls on the phone, and uses XREAL One IMU data for head tracking.
+---
+
+<p align="center">
+  <img src="./assets/screenshots/framed/01-home-framed.png" alt="vr2xr home" width="22%">
+  &nbsp;
+  <img src="./assets/screenshots/framed/02-calibration-framed.png" alt="vr2xr calibration setup" width="22%">
+  &nbsp;
+  <img src="./assets/screenshots/framed/03-sbs-mode-framed.png" alt="vr2xr sbs mode setup" width="22%">
+  &nbsp;
+  <img src="./assets/screenshots/framed/04-player-framed.png" alt="vr2xr player controls" width="22%">
+</p>
 
 ## Requirements
 

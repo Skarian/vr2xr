@@ -34,6 +34,7 @@ captures/
 *.keystore
 
 # Python tooling caches (dev utilities)
+.venv/
 __pycache__/
 *.pyc
 

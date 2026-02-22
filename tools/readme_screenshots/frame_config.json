@@ -1,0 +1,28 @@
+{
+  "frame": "assets/mockups/s23-frame.png",
+  "screen": {
+    "x": 14,
+    "y": 14,
+    "width": 460,
+    "height": 976
+  },
+  "corner_radius": 38,
+  "shots": [
+    {
+      "raw": "assets/screenshots/raw/01-home.png",
+      "framed": "assets/screenshots/framed/01-home-framed.png"
+    },
+    {
+      "raw": "assets/screenshots/raw/02-calibration.png",
+      "framed": "assets/screenshots/framed/02-calibration-framed.png"
+    },
+    {
+      "raw": "assets/screenshots/raw/03-sbs-mode.png",
+      "framed": "assets/screenshots/framed/03-sbs-mode-framed.png"
+    },
+    {
+      "raw": "assets/screenshots/raw/04-player.png",
+      "framed": "assets/screenshots/framed/04-player-framed.png"
+    }
+  ]
+}
