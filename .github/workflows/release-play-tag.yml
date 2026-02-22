@@ -1,0 +1,49 @@
+name: Publish Tagged Play Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish-play-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_WIF_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+          export_environment_variables: true
+
+      - name: Prepare signing and release metadata
+        run: |
+          echo "${{ secrets.VR2XR_UPLOAD_KEYSTORE_B64 }}" | base64 --decode > "$RUNNER_TEMP/vr2xr-upload.jks"
+          echo "VR2XR_UPLOAD_STORE_FILE=$RUNNER_TEMP/vr2xr-upload.jks" >> "$GITHUB_ENV"
+          echo "VR2XR_UPLOAD_STORE_PASSWORD=${{ secrets.VR2XR_UPLOAD_STORE_PASSWORD }}" >> "$GITHUB_ENV"
+          echo "VR2XR_UPLOAD_KEY_ALIAS=${{ secrets.VR2XR_UPLOAD_KEY_ALIAS }}" >> "$GITHUB_ENV"
+          echo "VR2XR_UPLOAD_KEY_PASSWORD=${{ secrets.VR2XR_UPLOAD_KEY_PASSWORD }}" >> "$GITHUB_ENV"
+          ./tools/release/derive_android_version.sh "${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
+          ./tools/release/generate_play_notes.sh "${GITHUB_REF_NAME}" "app/src/main/play/release-notes/en-US/default.txt"
+
+      - name: Publish release bundle to Play internal track
+        run: ./gradlew :app:publishReleaseBundle --stacktrace
