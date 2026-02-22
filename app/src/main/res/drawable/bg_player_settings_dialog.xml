@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:insetLeft="@dimen/player_dialog_window_inset_horizontal"
+    android:insetTop="@dimen/player_dialog_window_inset_vertical"
+    android:insetRight="@dimen/player_dialog_window_inset_horizontal"
+    android:insetBottom="@dimen/player_dialog_window_inset_vertical">
+
+    <shape android:shape="rectangle">
+        <solid android:color="@color/player_dialog_surface" />
+        <corners android:radius="@dimen/player_dialog_corner_radius" />
+    </shape>
+</inset>

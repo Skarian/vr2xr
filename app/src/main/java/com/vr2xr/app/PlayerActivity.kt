@@ -6,16 +6,27 @@ import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
 import android.util.Log
+import android.view.MotionEvent
 import android.view.Surface
 import android.view.View
+import android.widget.TextView
+import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import androidx.media3.common.C
+import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.slider.Slider
+import com.google.android.material.switchmaterial.SwitchMaterial
 import com.google.common.util.concurrent.ListenableFuture
 import com.vr2xr.R
 import com.vr2xr.databinding.ActivityPlayerBinding
+import com.vr2xr.databinding.DialogGlassesSettingsBinding
+import com.vr2xr.databinding.DialogProjectionSettingsBinding
 import com.vr2xr.diag.DiagnosticsOverlay
 import com.vr2xr.diag.DiagnosticsState
 import com.vr2xr.diag.PlaybackDiagnosticsConfig
@@ -43,6 +54,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 class PlayerActivity : AppCompatActivity() {
     private lateinit var binding: ActivityPlayerBinding
@@ -78,6 +90,34 @@ class PlayerActivity : AppCompatActivity() {
     private var externalReconnectWatchdogJob: Job? = null
     private var pausedFrameContinuityJob: Job? = null
     private var mediaControllerFuture: ListenableFuture<MediaController>? = null
+    private var mediaController: MediaController? = null
+    private var playbackProgressJob: Job? = null
+    private var isTimelineScrubbing = false
+    private var pendingTimelinePositionMs = 0L
+    private var selectedProjectionIndex = 0
+    private var imuSensitivityUiValue = DEFAULT_IMU_SENSITIVITY
+    private var imuTrackingEnabledUi = true
+
+    private val mediaControllerListener = object : Player.Listener {
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+            updatePlayPauseButton()
+        }
+
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            refreshTimelineUi()
+            updatePlayPauseButton()
+        }
+
+        override fun onEvents(player: Player, events: Player.Events) {
+            if (
+                events.contains(Player.EVENT_POSITION_DISCONTINUITY) ||
+                events.contains(Player.EVENT_TIMELINE_CHANGED) ||
+                events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)
+            ) {
+                refreshTimelineUi()
+            }
+        }
+    }
 
     private val source: SourceDescriptor? by lazy {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -126,7 +166,6 @@ class PlayerActivity : AppCompatActivity() {
             return
         }
 
-        binding.sourceText.text = resolvedSource.normalized
         decoderSummary = CodecCapabilityProbe().findHevcDecoderSummary()
 
         internalRenderer = VrSbsRenderer(
@@ -147,13 +186,8 @@ class PlayerActivity : AppCompatActivity() {
         internalRenderer.setRenderMode(renderMode)
         internalRenderer.setPose(latestPose)
 
-        binding.transportControls.player = null
-        binding.transportControls.show()
+        setupControls()
         connectMediaController()
-
-        binding.recenterButton.setOnClickListener { recenterView() }
-        binding.calibrateButton.setOnClickListener { runCalibration() }
-        binding.zeroViewButton.setOnClickListener { runZeroView() }
 
         val currentSessionSource = playbackSession.state.value.source
         val shouldForceReset = savedInstanceState == null &&
@@ -191,6 +225,7 @@ class PlayerActivity : AppCompatActivity() {
     override fun onStop() {
         routeBinding.onTeardownBegin()
         displayController.stop()
+        stopPlaybackProgressUpdates()
         externalReconnectWatchdogJob?.cancel()
         externalReconnectWatchdogJob = null
         pausedFrameContinuityJob?.cancel()
@@ -246,8 +281,12 @@ class PlayerActivity : AppCompatActivity() {
                 }
                 runCatching { future.get() }
                     .onSuccess { controller ->
-                        binding.transportControls.player = controller
-                        binding.transportControls.show()
+                        mediaController?.removeListener(mediaControllerListener)
+                        mediaController = controller
+                        controller.addListener(mediaControllerListener)
+                        refreshTimelineUi()
+                        updatePlayPauseButton()
+                        startPlaybackProgressUpdates()
                     }
                     .onFailure { error ->
                         val detail = error.message ?: getString(R.string.error_unknown)
@@ -259,10 +298,323 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun releaseMediaController() {
-        binding.transportControls.player = null
+        mediaController?.removeListener(mediaControllerListener)
+        mediaController = null
+        stopPlaybackProgressUpdates()
         val future = mediaControllerFuture ?: return
         mediaControllerFuture = null
         MediaController.releaseFuture(future)
+    }
+
+    private fun setupControls() {
+        binding.glassesSettingsButton.setOnClickListener { showGlassesSettingsPopup() }
+        binding.projectionSettingsButton.setOnClickListener { showProjectionSettingsPopup() }
+        binding.seekBackButton.setOnClickListener { seekBy(-SEEK_INTERVAL_MS) }
+        binding.playPauseButton.setOnClickListener { togglePlayPause() }
+        binding.seekForwardButton.setOnClickListener { seekBy(SEEK_INTERVAL_MS) }
+        binding.recenterButton.setOnClickListener { runRecenter() }
+        setupTimeline()
+        setupTouchpad()
+        refreshTimelineUi()
+        updatePlayPauseButton()
+    }
+
+    private fun setupTimeline() {
+        binding.timelineSlider.clearOnChangeListeners()
+        binding.timelineSlider.clearOnSliderTouchListeners()
+        binding.timelineSlider.addOnChangeListener { _, value, fromUser ->
+            if (!fromUser) {
+                return@addOnChangeListener
+            }
+            pendingTimelinePositionMs = value.toLong()
+            binding.currentTimeText.text = formatPlaybackTime(pendingTimelinePositionMs)
+        }
+        binding.timelineSlider.addOnSliderTouchListener(
+            object : com.google.android.material.slider.Slider.OnSliderTouchListener {
+                override fun onStartTrackingTouch(slider: com.google.android.material.slider.Slider) {
+                    isTimelineScrubbing = true
+                    pendingTimelinePositionMs = slider.value.toLong()
+                    binding.currentTimeText.text = formatPlaybackTime(pendingTimelinePositionMs)
+                }
+
+                override fun onStopTrackingTouch(slider: com.google.android.material.slider.Slider) {
+                    pendingTimelinePositionMs = slider.value.toLong()
+                    isTimelineScrubbing = false
+                    seekToTimelinePosition()
+                }
+            }
+        )
+    }
+
+    private fun setupTouchpad() {
+        binding.touchpadArea.post { resetTouchpadIndicator(animate = false) }
+        binding.touchpadArea.setOnTouchListener { _, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN,
+                MotionEvent.ACTION_MOVE -> {
+                    moveTouchpadIndicator(event.x, event.y)
+                    true
+                }
+
+                MotionEvent.ACTION_UP,
+                MotionEvent.ACTION_CANCEL -> {
+                    resetTouchpadIndicator(animate = true)
+                    true
+                }
+
+                else -> false
+            }
+        }
+    }
+
+    private fun moveTouchpadIndicator(rawX: Float, rawY: Float) {
+        val area = binding.touchpadArea
+        val indicator = binding.touchpadIndicator
+        val maxOffsetX = ((area.width - indicator.width) / 2f).coerceAtLeast(0f)
+        val maxOffsetY = ((area.height - indicator.height) / 2f).coerceAtLeast(0f)
+        val centeredX = (rawX - area.width / 2f).coerceIn(-maxOffsetX, maxOffsetX)
+        val centeredY = (rawY - area.height / 2f).coerceIn(-maxOffsetY, maxOffsetY)
+        indicator.animate().cancel()
+        indicator.translationX = centeredX
+        indicator.translationY = centeredY
+        indicator.alpha = 1f
+    }
+
+    private fun resetTouchpadIndicator(animate: Boolean) {
+        val indicator = binding.touchpadIndicator
+        indicator.animate().cancel()
+        if (animate) {
+            indicator.animate()
+                .translationX(0f)
+                .translationY(0f)
+                .alpha(0.78f)
+                .setDuration(120L)
+                .start()
+            return
+        }
+        indicator.translationX = 0f
+        indicator.translationY = 0f
+        indicator.alpha = 0.78f
+    }
+
+    private fun seekBy(deltaMs: Long) {
+        val controller = mediaController ?: return
+        val durationMs = controller.duration.takeIf { it != C.TIME_UNSET && it > 0L }
+        val target = (controller.currentPosition + deltaMs).coerceAtLeast(0L)
+        val boundedTarget = if (durationMs != null) target.coerceAtMost(durationMs) else target
+        controller.seekTo(boundedTarget)
+        refreshTimelineUi()
+    }
+
+    private fun togglePlayPause() {
+        val controller = mediaController ?: return
+        if (controller.isPlaying) {
+            controller.pause()
+        } else {
+            controller.play()
+        }
+        updatePlayPauseButton()
+    }
+
+    private fun seekToTimelinePosition() {
+        val controller = mediaController ?: return
+        val durationMs = controller.duration.takeIf { it != C.TIME_UNSET && it > 0L }
+        val target = if (durationMs != null) {
+            pendingTimelinePositionMs.coerceIn(0L, durationMs)
+        } else {
+            pendingTimelinePositionMs.coerceAtLeast(0L)
+        }
+        controller.seekTo(target)
+        refreshTimelineUi()
+    }
+
+    private fun refreshTimelineUi() {
+        val controller = mediaController
+        if (controller == null) {
+            binding.timelineSlider.isEnabled = false
+            if (binding.timelineSlider.valueTo != 1f) {
+                binding.timelineSlider.valueTo = 1f
+            }
+            if (!isTimelineScrubbing) {
+                binding.timelineSlider.value = 0f
+            }
+            binding.currentTimeText.text = getString(R.string.player_default_time)
+            binding.durationTimeText.text = getString(R.string.player_default_time)
+            return
+        }
+
+        val durationMs = controller.duration.takeIf { it != C.TIME_UNSET && it > 0L } ?: 0L
+        val safeDurationMs = durationMs.coerceAtLeast(1L)
+        val currentPositionMsRaw = controller.currentPosition.coerceAtLeast(0L)
+        val currentPositionMs = if (durationMs > 0L) {
+            currentPositionMsRaw.coerceAtMost(durationMs)
+        } else {
+            currentPositionMsRaw
+        }
+        if (binding.timelineSlider.valueTo != safeDurationMs.toFloat()) {
+            binding.timelineSlider.valueTo = safeDurationMs.toFloat()
+        }
+        binding.timelineSlider.isEnabled = durationMs > 0L
+        if (!isTimelineScrubbing) {
+            pendingTimelinePositionMs = currentPositionMs
+            val sliderValue = currentPositionMs.coerceIn(0L, safeDurationMs).toFloat()
+            if (binding.timelineSlider.value != sliderValue) {
+                binding.timelineSlider.value = sliderValue
+            }
+        }
+        val displayedPositionMs = if (isTimelineScrubbing) pendingTimelinePositionMs else currentPositionMs
+        binding.currentTimeText.text = formatPlaybackTime(displayedPositionMs)
+        binding.durationTimeText.text = formatPlaybackTime(durationMs)
+    }
+
+    private fun updatePlayPauseButton() {
+        val isPlaying = mediaController?.isPlaying == true
+        val iconRes = if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
+        val contentDescription = if (isPlaying) {
+            getString(R.string.player_pause_content_description)
+        } else {
+            getString(R.string.player_play_content_description)
+        }
+        binding.playPauseButton.setIconResource(iconRes)
+        binding.playPauseButton.contentDescription = contentDescription
+    }
+
+    private fun startPlaybackProgressUpdates() {
+        if (playbackProgressJob?.isActive == true) {
+            return
+        }
+        playbackProgressJob = lifecycleScope.launch {
+            while (isActive) {
+                refreshTimelineUi()
+                delay(PLAYBACK_PROGRESS_UPDATE_MS)
+            }
+        }
+    }
+
+    private fun stopPlaybackProgressUpdates() {
+        playbackProgressJob?.cancel()
+        playbackProgressJob = null
+    }
+
+    private fun showGlassesSettingsPopup() {
+        val dialogBinding = DialogGlassesSettingsBinding.inflate(layoutInflater)
+        val dialog = MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.glasses_settings_title)
+            .setView(dialogBinding.root)
+            .setPositiveButton(R.string.player_settings_close, null)
+            .create()
+
+        bindComingSoonSlider(
+            slider = dialogBinding.imuSensitivitySlider,
+            valueLabel = dialogBinding.imuSensitivityValueText
+        )
+        bindComingSoonToggle(
+            toggle = dialogBinding.imuTrackingSwitch,
+            row = dialogBinding.imuTrackingRow,
+            initialValue = imuTrackingEnabledUi
+        ) { isEnabled ->
+            imuTrackingEnabledUi = isEnabled
+        }
+
+        dialogBinding.runCalibrationButton.setOnClickListener {
+            runCalibration()
+            dialog.dismiss()
+        }
+
+        dialog.show()
+        applyPlayerSettingsDialogStyle(dialog)
+    }
+
+    private fun bindComingSoonSlider(slider: Slider, valueLabel: TextView) {
+        slider.clearOnChangeListeners()
+        slider.clearOnSliderTouchListeners()
+        slider.value = imuSensitivityUiValue
+        valueLabel.text = formatImuSensitivityValue(imuSensitivityUiValue)
+        slider.addOnChangeListener { _, value, fromUser ->
+            if (!fromUser) {
+                return@addOnChangeListener
+            }
+            imuSensitivityUiValue = value
+            valueLabel.text = formatImuSensitivityValue(value)
+        }
+        slider.addOnSliderTouchListener(
+            object : Slider.OnSliderTouchListener {
+                override fun onStartTrackingTouch(slider: Slider) = Unit
+
+                override fun onStopTrackingTouch(slider: Slider) {
+                    onDeferredSettingsInteraction()
+                }
+            }
+        )
+    }
+
+    private fun bindComingSoonToggle(
+        toggle: SwitchMaterial,
+        row: View,
+        initialValue: Boolean,
+        onValueChanged: (Boolean) -> Unit
+    ) {
+        toggle.setOnCheckedChangeListener(null)
+        toggle.isChecked = initialValue
+        row.setOnClickListener { toggle.toggle() }
+        toggle.setOnCheckedChangeListener { _, isChecked ->
+            onValueChanged(isChecked)
+            onDeferredSettingsInteraction()
+        }
+    }
+
+    private fun showProjectionSettingsPopup() {
+        val dialogBinding = DialogProjectionSettingsBinding.inflate(layoutInflater)
+        dialogBinding.projectionHalfEquirectangularOption.isChecked = selectedProjectionIndex == 0
+        dialogBinding.projectionOptionsGroup.setOnCheckedChangeListener { _, checkedId ->
+            if (checkedId == R.id.projectionHalfEquirectangularOption) {
+                selectedProjectionIndex = 0
+            }
+        }
+
+        val dialog = MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.projection_settings_title)
+            .setView(dialogBinding.root)
+            .setPositiveButton(R.string.player_settings_close, null)
+            .create()
+        dialog.show()
+        applyPlayerSettingsDialogStyle(dialog)
+    }
+
+    private fun applyPlayerSettingsDialogStyle(dialog: AlertDialog) {
+        dialog.window?.setBackgroundDrawable(
+            ContextCompat.getDrawable(this, R.drawable.bg_player_settings_dialog)
+        )
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.let { closeButton ->
+            closeButton.isAllCaps = false
+            closeButton.setTextColor(
+                ContextCompat.getColor(this, R.color.player_dialog_close_text)
+            )
+        }
+    }
+
+    private fun formatImuSensitivityValue(value: Float): String {
+        return getString(R.string.imu_sensitivity_value_format, value)
+    }
+
+    private fun onDeferredSettingsInteraction() {
+        showComingSoonSettingToast()
+    }
+
+    private fun showComingSoonSettingToast() {
+        Toast.makeText(this, R.string.settings_coming_soon, Toast.LENGTH_SHORT).show()
+    }
+
+    private fun formatPlaybackTime(positionMs: Long): String {
+        val totalSeconds = (positionMs.coerceAtLeast(0L) / 1000L).toInt()
+        val hours = totalSeconds / 3600
+        val minutes = (totalSeconds % 3600) / 60
+        val seconds = totalSeconds % 60
+        return if (hours > 0) {
+            String.format(Locale.US, "%d:%02d:%02d", hours, minutes, seconds)
+        } else {
+            String.format(Locale.US, "%02d:%02d", minutes, seconds)
+        }
     }
 
     private fun attachTrackingCollectors() {
@@ -330,7 +682,6 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun updateTrackingControls() {
         val isStreaming = latestSessionState is XrSessionState.Streaming
-        binding.zeroViewButton.isEnabled = isStreaming
         binding.recenterButton.isEnabled = isStreaming
     }
 
@@ -354,7 +705,6 @@ class PlayerActivity : AppCompatActivity() {
         if (latestBiasState is XrBiasState.Error && latestSessionState !is XrSessionState.Streaming) {
             trackingSummary = getString(R.string.tracking_state_error)
         }
-        binding.trackingStatusText.text = getString(R.string.tracking_status_template, trackingSummary)
     }
 
     private fun runCalibration() {
@@ -620,18 +970,6 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun renderRouteStatus() {
-        val summary = when (val current = routeState) {
-            DisplayRouteState.NoOutput -> getString(R.string.route_state_no_output)
-            is DisplayRouteState.ExternalPending -> getString(
-                R.string.route_state_external_pending,
-                current.displayId
-            )
-            is DisplayRouteState.ExternalActive -> getString(
-                R.string.route_state_external_active,
-                current.displayId
-            )
-        }
-        binding.routeStatusText.text = getString(R.string.route_status_template, summary)
         binding.videoSurface.visibility = View.INVISIBLE
     }
 
@@ -685,7 +1023,7 @@ class PlayerActivity : AppCompatActivity() {
         externalPresentation?.setPose(pose)
     }
 
-    private fun recenterView() {
+    private fun runRecenter() {
         if (latestSessionState !is XrSessionState.Streaming) {
             errors.show(getString(R.string.tracking_recenter_requires_streaming))
             return
@@ -714,3 +1052,6 @@ private fun android.view.Display.toSignature(): DisplayModeSignature {
 private const val EXTERNAL_RECONNECT_WATCHDOG_MS = 500L
 private const val PAUSED_FRAME_REFRESH_RETRY_MS = 250L
 private const val PAUSED_FRAME_VISIBILITY_TIMEOUT_MS = 2000L
+private const val SEEK_INTERVAL_MS = 15_000L
+private const val PLAYBACK_PROGRESS_UPDATE_MS = 300L
+private const val DEFAULT_IMU_SENSITIVITY = 0.5f

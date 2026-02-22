@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingStart="@dimen/player_dialog_content_padding"
+    android:paddingTop="@dimen/player_dialog_content_padding"
+    android:paddingEnd="@dimen/player_dialog_content_padding"
+    android:paddingBottom="@dimen/player_dialog_content_padding">
+
+    <RadioGroup
+        android:id="@+id/projectionOptionsGroup"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <com.google.android.material.radiobutton.MaterialRadioButton
+            android:id="@+id/projectionHalfEquirectangularOption"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:checked="true"
+            android:paddingTop="@dimen/player_timeline_time_spacing"
+            android:paddingBottom="@dimen/player_timeline_time_spacing"
+            android:textAppearance="@style/TextAppearance.Vr2xr.Player.DialogItem"
+            android:textColor="@color/player_controls_text_primary"
+            android:text="@string/projection_half_equirectangular_vr180"
+            app:buttonTint="@color/player_controls_timeline_active" />
+    </RadioGroup>
+
+    <TextView
+        style="@style/TextAppearance.Vr2xr.Player.TimeLabel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/player_dialog_row_spacing"
+        android:text="@string/projection_settings_more_coming_soon" />
+</LinearLayout>

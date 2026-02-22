@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <size
+        android:width="@dimen/player_touchpad_indicator_size"
+        android:height="@dimen/player_touchpad_indicator_size" />
+    <solid android:color="@color/player_touchpad_indicator" />
+</shape>

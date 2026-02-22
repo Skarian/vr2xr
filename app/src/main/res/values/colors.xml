@@ -19,8 +19,22 @@
 
     <color name="dex_warning_background">#33B00020</color>
     <color name="dex_warning_text">#B00020</color>
-    <color name="player_source_background">#99000000</color>
-    <color name="player_controls_background">#CC101010</color>
+    <color name="player_controls_background">#F0181825</color>
+    <color name="player_controls_text_primary">@color/catppuccin_mocha_text</color>
+    <color name="player_controls_text_secondary">@color/catppuccin_mocha_subtext0</color>
+    <color name="player_controls_button_surface">@color/catppuccin_mocha_surface0</color>
+    <color name="player_controls_button_outline">@color/catppuccin_mocha_overlay0</color>
+    <color name="player_controls_button_icon">@color/catppuccin_mocha_text</color>
+    <color name="player_controls_play_button">@color/catppuccin_mocha_blue</color>
+    <color name="player_controls_play_button_icon">@color/catppuccin_mocha_mantle</color>
+    <color name="player_controls_timeline_active">@color/catppuccin_mocha_blue</color>
+    <color name="player_controls_timeline_inactive">@color/catppuccin_mocha_overlay0</color>
+    <color name="player_controls_timeline_halo">#3389B4FA</color>
+    <color name="player_dialog_surface">@color/catppuccin_mocha_mantle</color>
+    <color name="player_dialog_close_text">@color/catppuccin_mocha_blue</color>
+    <color name="player_touchpad_background">@color/catppuccin_mocha_surface0</color>
+    <color name="player_touchpad_outline">@color/catppuccin_mocha_overlay0</color>
+    <color name="player_touchpad_indicator">@color/catppuccin_mocha_blue</color>
     <color name="overlay_text_primary">#FFFFFFFF</color>
     <color name="overlay_background">#88000000</color>
     <color name="xreal_status_connected">@color/catppuccin_mocha_green</color>
