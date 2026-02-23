@@ -81,8 +81,11 @@ class PlayerActivity : AppCompatActivity() {
     private val runtimePoseController = RuntimePoseController(initialSensitivity = DEFAULT_IMU_SENSITIVITY)
     private var trackingSummary: String = ""
 
-    private val renderMode = RenderMode()
+    private var renderMode = RenderMode(perEyeFovDegrees = ProjectionFovConfig.DEFAULT_DEGREES)
     private val errors by lazy { ErrorUiController(this) }
+    private val projectionSettingsPreferences by lazy {
+        getSharedPreferences(ProjectionFovConfig.PREFERENCES_FILE, MODE_PRIVATE)
+    }
 
     private var latestSessionState: XrSessionState = XrSessionState.Idle
     private var latestBiasState: XrBiasState = XrBiasState.Inactive
@@ -165,6 +168,7 @@ class PlayerActivity : AppCompatActivity() {
             finish()
             return
         }
+        renderMode = renderMode.copy(perEyeFovDegrees = loadPersistedProjectionFov())
 
         decoderSummary = CodecCapabilityProbe().findHevcDecoderSummary()
 
@@ -183,7 +187,7 @@ class PlayerActivity : AppCompatActivity() {
         binding.videoSurface.setEGLContextClientVersion(2)
         binding.videoSurface.setRenderer(internalRenderer)
         binding.videoSurface.renderMode = GLSurfaceView.RENDERMODE_CONTINUOUSLY
-        internalRenderer.setRenderMode(renderMode)
+        applyRenderModeToRenderers()
         applyRuntimePose(runtimePoseController.currentPose())
 
         setupControls()
@@ -210,6 +214,7 @@ class PlayerActivity : AppCompatActivity() {
         displayController.start()
         binding.videoSurface.onResume()
         syncExternalPresentation()
+        applyRenderModeToRenderers()
         applyPoseToRenderers(latestPose)
         attachTrackingCollectors()
         attachPlaybackSessionCollector()
@@ -673,6 +678,10 @@ class PlayerActivity : AppCompatActivity() {
                 selectedProjectionIndex = 0
             }
         }
+        bindProjectionFovSlider(
+            slider = dialogBinding.projectionFovSlider,
+            valueLabel = dialogBinding.projectionFovValueText
+        )
 
         val dialog = MaterialAlertDialogBuilder(this)
             .setTitle(R.string.projection_settings_title)
@@ -697,6 +706,55 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun formatImuSensitivityValue(value: Float): String {
         return getString(R.string.imu_sensitivity_value_format, value)
+    }
+
+    private fun formatProjectionFovValue(value: Float): String {
+        return getString(R.string.projection_fov_value_format, value)
+    }
+
+    private fun bindProjectionFovSlider(slider: Slider, valueLabel: TextView) {
+        val currentFov = ProjectionFovConfig.normalizeDegrees(renderMode.perEyeFovDegrees)
+        slider.clearOnChangeListeners()
+        slider.clearOnSliderTouchListeners()
+        slider.valueFrom = ProjectionFovConfig.MIN_DEGREES
+        slider.valueTo = ProjectionFovConfig.MAX_DEGREES
+        slider.stepSize = ProjectionFovConfig.STEP_DEGREES
+        slider.value = currentFov
+        valueLabel.text = formatProjectionFovValue(currentFov)
+        slider.addOnChangeListener { _, value, fromUser ->
+            val normalized = ProjectionFovConfig.normalizeDegrees(value)
+            valueLabel.text = formatProjectionFovValue(normalized)
+            if (!fromUser) {
+                return@addOnChangeListener
+            }
+            applyProjectionFov(normalized)
+        }
+    }
+
+    private fun loadPersistedProjectionFov(): Float {
+        val storedValue = projectionSettingsPreferences.getFloat(
+            ProjectionFovConfig.PREFERENCE_KEY_FOV_DEGREES,
+            ProjectionFovConfig.DEFAULT_DEGREES
+        )
+        val normalizedValue = ProjectionFovConfig.normalizeDegrees(storedValue)
+        if (storedValue != normalizedValue) {
+            projectionSettingsPreferences.edit()
+                .putFloat(ProjectionFovConfig.PREFERENCE_KEY_FOV_DEGREES, normalizedValue)
+                .apply()
+        }
+        return normalizedValue
+    }
+
+    private fun applyProjectionFov(value: Float) {
+        val normalizedValue = ProjectionFovConfig.normalizeDegrees(value)
+        if (renderMode.perEyeFovDegrees == normalizedValue) {
+            return
+        }
+        renderMode = renderMode.copy(perEyeFovDegrees = normalizedValue)
+        applyRenderModeToRenderers()
+        projectionSettingsPreferences.edit()
+            .putFloat(ProjectionFovConfig.PREFERENCE_KEY_FOV_DEGREES, normalizedValue)
+            .apply()
     }
 
     private fun formatPlaybackTime(positionMs: Long): String {
@@ -908,9 +966,9 @@ class PlayerActivity : AppCompatActivity() {
                 }
                 externalPresentation = it
                 externalPresentationModeSignature = currentSignature
-                it.setRenderMode(renderMode)
-                it.setPose(latestPose)
                 it.show()
+                applyRenderModeToRenderers()
+                applyPoseToRenderers(latestPose)
             }
         }.onFailure {
             if (token != externalPresentationToken) {
@@ -1114,6 +1172,13 @@ class PlayerActivity : AppCompatActivity() {
             internalRenderer.setPose(pose)
         }
         externalPresentation?.setPose(pose)
+    }
+
+    private fun applyRenderModeToRenderers() {
+        if (::internalRenderer.isInitialized) {
+            internalRenderer.setRenderMode(renderMode)
+        }
+        externalPresentation?.setRenderMode(renderMode)
     }
 
     private fun applyRuntimePose(pose: PoseState) {

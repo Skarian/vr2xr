@@ -68,7 +68,7 @@ When enabled, routing logs and on-screen diagnostics are both active.
 
 ## Repo Map
 
-- `app/src/main/java/com/vr2xr/app`: activities and app wiring
+- `app/src/main/java/com/vr2xr/app`: activities, app wiring, and player runtime settings contracts (for example `ProjectionFovConfig.kt`)
 - `app/src/main/java/com/vr2xr/player`: service, playback coordinator, playback engine
 - `app/src/main/java/com/vr2xr/display`: external display controller and route state machine
 - `app/src/main/java/com/vr2xr/tracking`: XREAL tracking session integration and pose mapping

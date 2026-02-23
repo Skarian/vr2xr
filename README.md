@@ -28,6 +28,7 @@
 - **Flexible Source Input**: Open local files, `http(s)` video URLs, or share media links/files from other Android apps
 - **Guided Setup**: Flat-surface calibration first, then SBS readiness before entering the VR player
 - **In-Player Tracking Controls**: Recalibrate anytime, tune IMU sensitivity, and toggle IMU tracking on or off
+- **Runtime Projection FOV Tuning**: Adjust a shared `FOV` slider in Projection Settings and see changes immediately on phone and glasses
 - **Phone Playback Controls**: On-phone controls for play/pause, 15-second seek, and timeline scrubbing
 - **Touchpad View Adjustment**: Drag to adjust view orientation with continuous edge auto-drag for smooth movement
 - **Durable Playback Sessions**: Handles output interruptions and resumes cleanly into the active playback session
@@ -51,7 +52,7 @@
 3. In setup step 1, place the glasses on a flat surface and run calibration.
 4. In setup step 2, put the glasses back on and switch `Display > 3D Mode` to `Full SBS`.
 5. Tap `Continue to VR Player` (the app applies Zero View automatically).
-6. Start playback and use phone controls for settings popups, play/pause, 15-second seek buttons, timeline drag/tap seeking, recenter, IMU sensitivity/tracking controls, and continuous touchpad view drag.
+6. Start playback and use phone controls for settings popups, play/pause, 15-second seek buttons, timeline drag/tap seeking, recenter, IMU sensitivity/tracking controls, projection `FOV` tuning, and continuous touchpad view drag.
 
 Samsung DeX warning: DeX desktop mode is not supported for playback. If DeX is on, turn it off and use screen mirroring.
 
