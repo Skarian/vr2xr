@@ -37,6 +37,17 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb shell am start -n com.vr2xr/.app.MainActivity
 ```
 
+## Demo Video Capture (Dual Display)
+
+Use `tools/capture_dual_display.sh` to record phone and external displays in parallel.
+
+```bash
+tools/capture_dual_display.sh --list-displays
+tools/capture_dual_display.sh --phone-display-id <phone-id> --external-display-id <external-id>
+```
+
+Outputs are written to `artifacts/demo-recordings/`.
+
 ## Diagnostics
 
 Diagnostics are off by default.
