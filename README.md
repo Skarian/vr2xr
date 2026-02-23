@@ -67,8 +67,16 @@ Phone-only playback is intentionally not supported. The app also does not change
 
 ## Install
 
-Debug APKs are published to versioned GitHub Releases when semantic tags (`v*.*.*`) are pushed.
-Download `vr2xr.apk` from the release tag you want to install.
+Preferred: Join the Play Store closed test so we can reach the required tester threshold for public release.
+
+1. Join the tester group: https://groups.google.com/g/vr2xr-testers
+2. Accept the testing invite: https://play.google.com/apps/testing/com.vr2xr
+3. Install the app from Play: https://play.google.com/store/apps/details?id=com.vr2xr
+
+If you are not interested in becoming a tester, debug APKs are still published to versioned GitHub Releases when semantic tags (`v*.*.*`) are pushed.
+You can download `vr2xr.apk` from the release tag you want to install.
+
+For a shareable tester onboarding page, see `PLAY_STORE_TESTING.md`.
 
 ## For Developers
 
